@@ -7,12 +7,13 @@ from astropy import constants as const
 from astropy import units as u
 from astropy.time import Time
 from astropy.table import Table, QTable
+import os
 
 from astroquery.gaia import Gaia
 import argparse
 
 
-def queryGaia(var, gcns, num):
+def queryGaia(var, gcns, num, save):
     if gcns == True:
         dist_col = 'dist_50'
         cartesian = True
@@ -21,17 +22,19 @@ def queryGaia(var, gcns, num):
         dist84_col, dist16_col = 'dist_84', 'dist_16'
         gmag_col, bpmag_col, rpmag_col = 'phot_g_mean_mag', 'phot_bp_mean_mag', 'phot_rp_mean_mag'
         
-        query_select = f'SELECT TOP {num} gcns.{dist_col}, gcns.{x_col}, gcns.{y_col}, gcns.{z_col},\
-                        gcns.{ra_col}, gcns.{dec_col}, gcns.{dist84_col}, gcns.{dist16_col},\
+        query_select = f'SELECT TOP {num} gcns.{dist_col}, gcns.{x_col}, gcns.{y_col}, gcns.{z_col}, \
+                        gcns.{ra_col}, gcns.{dec_col}, gcns.{dist84_col}, gcns.{dist16_col}, \
                         gcns.{gmag_col}, gcns.{bpmag_col}, gcns.{rpmag_col}'
         if var == True:
-            query = f'{query_select}\
-            FROM gaiadr3.vari_summary AS var\
+            query = f'{query_select} \
+            FROM gaiadr3.vari_summary AS var \
             JOIN external.gaiaedr3_gcns_main_1 AS gcns ON var.source_id=gcns.source_id'
+            sf = 'GCNS_var.fits'
             
         elif var == False:
-            query = f'{query_select}\
+            query = f'{query_select} \
             FROM external.gaiaedr3_gcns_main_1 AS gcns'
+            sf = 'GCNS.fits'
             
     elif gcns == False:
         dist_col = 'distance_gspphot'
@@ -40,24 +43,27 @@ def queryGaia(var, gcns, num):
         dist84_col, dist16_col = 'distance_gspphot_upper', 'distance_gspphot_lower'
         gmag_col, bpmag_col, rpmag_col = 'phot_g_mean_mag', 'phot_bp_mean_mag', 'phot_rp_mean_mag'
         
-        query_select = f'SELECT TOP {num} source.{dist_col},\
-                        source.{ra_col}, source.{dec_col}, source.{dist84_col}, source.{dist16_col},\
+        query_select = f'SELECT TOP {num} source.{dist_col}, \
+                        source.{ra_col}, source.{dec_col}, source.{dist84_col}, source.{dist16_col}, \
                         source.{gmag_col}, source.{bpmag_col}, source.{rpmag_col}'
         
         if var == True:
-            query = f"{query_select}\
-            FROM gaiadr3.vari_summary AS var\
-            JOIN gaiadr3.gaia_source AS source ON var.source_id=source.source_id\
+            query = f"{query_select} \
+            FROM gaiadr3.vari_summary AS var \
+            JOIN gaiadr3.gaia_source AS source ON var.source_id=source.source_id \
             WHERE source.has_mcmc_gspphot='true'"
+            sf = 'Gaia_var.fits'
         
         elif var == False:
-            query = f"{query_select}\
-            FROM gaiadr3.gaia_source AS source\
+            query = f"{query_select} \
+            FROM gaiadr3.gaia_source AS source \
             WHERE source.has_mcmc_gspphot='true'"
+            sf = 'Gaia.fits'
             
 
     job     = Gaia.launch_job_async(query, output_format='fits')
     results = job.get_results()
+
     
     c1 = SkyCoord(ra = results[ra_col],
               dec = results[dec_col],
@@ -74,9 +80,32 @@ def queryGaia(var, gcns, num):
     stars = QTable([results[ra_col], results[dec_col], results[dist_col], results[dist84_col], results[dist16_col], xcoord, ycoord, zcoord, results[gmag_col], results[bpmag_col], results[rpmag_col]],
                    names=('ra', 'dec', 'dist', 'dist84', 'dist16', 'x', 'y', 'z', 'g', 'bp', 'rp'))
 
+
+    savefile = f'../{sf}'
+    if save:
+        if os.path.exists(savefile):
+            os.remove(savefile)    
+        stars.write(savefile, format='fits')
+
+    print(f'{len(stars)} stars retrieved and saved to {savefile}')
+
+    return c1, stars
+
+
+
+
+def readFile(filename):
+    filepath = f'../{filename}.fits'
+    stars = Table.read(filepath, format='fits')
+    c1 = SkyCoord(ra = stars['ra'],
+              dec = stars['dec'],
+              distance = stars['dist'],
+              frame = 'icrs')
+
     return c1, stars
     
-    
+
+
 
 def onEllipsoid(event, t0,  c1, stars, tol):
     # event is a SkyCoord with RA, Dec, distance of event (i.e. SN 1987A)
@@ -135,7 +164,12 @@ def crossEllipsoid(event, t0,  c1, stars, tol, start):
     
     return c1[crossings], stars[crossings]
      
-    
+
+def login(username, password):
+    Gaia.login(user=username, password=password)
+
+def logout():
+    Gaia.logout()
     
     
     
@@ -145,58 +179,98 @@ if __name__ == '__main__':
         description='Select targets on SETI Ellipsoid'
         )
     parser.add_argument(
-        '-v', type=bool, default=True,
-        help='Only variable stars'
+        '--v', type = int, default=1,
+        help='Only variable stars (1) or all stars (0)'
         )
     parser.add_argument(
-        '-ns', type=bool, default=True,
-        help='Use Gaia Catalogue of Nearby Stars (GCNS)'
+        '--ns', type = int, default=1,
+        help='Use Gaia Catalogue of Nearby Stars (GCNS) (1) or all star (0)'
         )
     parser.add_argument(
-        '-start', type=float, default=2014.569312182902,
+        '--start', type=float, default=2014.569312182902,
         help='Stars that have crossed the SETI ellipsoid since when?'
         )
     parser.add_argument(
-        '-tol', type=float, default=0.1,
+        '--tol', type=float, default=0.1,
         help='How much tolerance for being on ellipse? (ly)'
         )
     parser.add_argument(
-        '-num', type=int, default=100000,
+        '--num', type=int, default=100000,
         help='Max number of targets'
         )
     parser.add_argument(
-        '-cross', type=bool, default=False,
-        help='True: which stars have crossed ellipsoid since start? False: which stars are on ellipsoid now?'
+        '--cross', type=int, default=1,
+        help='(1) which stars have crossed ellipsoid since start? (0) which stars are on ellipsoid now?'
         )
+    parser.add_argument(
+        '--u', type=str, default=None,
+        help='Gaia login username'
+    )
+    parser.add_argument(
+        '--p', type=str, default=None,
+        help='Gaia login password'
+    )
+    parser.add_argument(
+        '--save', type=int, default=1,
+        help='Save to a table (1)?'
+    )
+  
 
     args = parser.parse_args()
 
-    v = args.v
-    ns = args.ns
+    if args.v == 1:
+        v = True
+    else:
+        v = False
+    
+    if args.ns == 1:
+        ns = True
+    else:
+        ns = False
+    
+    if args.cross == 1:
+        cross = True
+    else:
+        cross = False
+    
+    if args.save == 1:
+        save = True
+    else:
+        save = False
+    
+    
+    
     start = args.start
     tol = args.tol
     num = args.num
-    cross = args.cross
+    username = args.u
+    password = args.p
+
+    if username and password:
+        login(username, password)
+
     
+    c1, stars = queryGaia(v, ns, num, save)
     
-    c1, stars = queryGaia(v, ns, num)
-    
-    
+
+
+
+
     
     # Properties of SN1987A
-    t0 = Time({'year': 1987, 'month': 2, 'day': 23}, format='ymdhms')
+    # t0 = Time({'year': 1987, 'month': 2, 'day': 23}, format='ymdhms')
 
-    c0_radec = SkyCoord.from_name('SN 1987A')
+    # c0_radec = SkyCoord.from_name('SN 1987A')
 
     # Panagia (1999) https://ui.adsabs.harvard.edu/abs/1999IAUS..190..549P/abstract
-    d0 = 51.4 * u.kpc
-    d0_err = 1.2 * u.kpc
+    # d0 = 51.4 * u.kpc
+    # d0_err = 1.2 * u.kpc
 
-    c0 = SkyCoord(ra=c0_radec.ra, dec=c0_radec.dec, distance=d0)
+    # c0 = SkyCoord(ra=c0_radec.ra, dec=c0_radec.dec, distance=d0)
     
-    if cross:
-        c1_x, stars_x = crossEllipsoid(c0, t0, c1, stars, tol, start)
-        print(f'{len(stars_x)} stars have crossed the ellipsoid since {start}')
-    else:
-        c1_on, stars_on = onEllipsoid(c0, t0, c1, stars, tol)
-        print(f'There are currently {len(stars_on)} stars on the ellipsoid')
+    # if cross:
+    #    c1_x, stars_x = crossEllipsoid(c0, t0, c1, stars, tol, start)
+    #    print(f'{len(stars_x)} stars have crossed the ellipsoid since {start}')
+    # else:
+    #    c1_on, stars_on = onEllipsoid(c0, t0, c1, stars, tol)
+    #    print(f'There are currently {len(stars_on)} stars on the ellipsoid')
