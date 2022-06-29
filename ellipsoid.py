@@ -11,9 +11,16 @@ import os
 
 from astroquery.gaia import Gaia
 import argparse
+import matplotlib.pyplot as plt
 
 
 def queryGaia(var, gcns, num, save):
+    # Retrieves data from Gaia archive
+    # var = variable stars or all stars?
+    # gcns = GCNS or all Gaia stars?
+    # num = max number of stars to retrieve
+    # save = save to a file? 
+    
     if gcns == True:
         dist_col = 'dist_50'
         cartesian = True
@@ -24,7 +31,7 @@ def queryGaia(var, gcns, num, save):
         
         query_select = f'SELECT TOP {num} gcns.{dist_col}, gcns.{x_col}, gcns.{y_col}, gcns.{z_col}, \
                         gcns.{ra_col}, gcns.{dec_col}, gcns.{dist84_col}, gcns.{dist16_col}, \
-                        gcns.{gmag_col}, gcns.{bpmag_col}, gcns.{rpmag_col}'
+                        gcns.{gmag_col}, gcns.{bpmag_col}, gcns.{rpmag_col}, gcns.source_id'
         if var == True:
             query = f'{query_select} \
             FROM gaiadr3.vari_summary AS var \
@@ -45,7 +52,7 @@ def queryGaia(var, gcns, num, save):
         
         query_select = f'SELECT TOP {num} source.{dist_col}, \
                         source.{ra_col}, source.{dec_col}, source.{dist84_col}, source.{dist16_col}, \
-                        source.{gmag_col}, source.{bpmag_col}, source.{rpmag_col}'
+                        source.{gmag_col}, source.{bpmag_col}, source.{rpmag_col}, source.source_id'
         
         if var == True:
             query = f"{query_select} \
@@ -61,9 +68,11 @@ def queryGaia(var, gcns, num, save):
             sf = 'Gaia.fits'
             
 
-    job     = Gaia.launch_job_async(query, output_format='fits')
+    job = Gaia.launch_job_async(query, output_format='fits')
+    print('1')
     results = job.get_results()
 
+    print('1')
     
     c1 = SkyCoord(ra = results[ra_col],
               dec = results[dec_col],
@@ -77,8 +86,8 @@ def queryGaia(var, gcns, num, save):
         ycoord = c1.transform_to('galactocentric').y.to('pc')
         zcoord = c1.transform_to('galactocentric').z.to('pc') - 20.8*u.pc
     
-    stars = QTable([results[ra_col], results[dec_col], results[dist_col], results[dist84_col], results[dist16_col], xcoord, ycoord, zcoord, results[gmag_col], results[bpmag_col], results[rpmag_col]],
-                   names=('ra', 'dec', 'dist', 'dist84', 'dist16', 'x', 'y', 'z', 'g', 'bp', 'rp'))
+    stars = QTable([results['source_id'], results[ra_col], results[dec_col], results[dist_col], results[dist84_col], results[dist16_col], xcoord, ycoord, zcoord, results[gmag_col], results[bpmag_col], results[rpmag_col]],
+                   names=('id', 'ra', 'dec', 'dist', 'dist84', 'dist16', 'x', 'y', 'z', 'g', 'bp', 'rp'))
 
 
     savefile = f'../{sf}'
@@ -87,8 +96,10 @@ def queryGaia(var, gcns, num, save):
             os.remove(savefile)    
         stars.write(savefile, format='fits')
 
-    print(f'{len(stars)} stars retrieved and saved to {savefile}')
+        print(f'{len(stars)} stars retrieved and saved to {savefile}')
 
+    else:
+        print(f'{len(stars)} stars retrieved')
     return c1, stars
 
 
@@ -127,7 +138,7 @@ def onEllipsoid(event, t0,  c1, stars, tol):
     
     # Star geometry
     d1 = stars['dist'] # dist to stars
-    d2 = c1.separation_3d(c0) # dist from all GCNS stars to SN 1987A
+    d2 = c1.separation_3d(event) # dist from all GCNS stars to SN 1987A
     
     
     # Which stars are within some tolerance of being ON the ellipse?
@@ -150,7 +161,7 @@ def crossEllipsoid(event, t0,  c1, stars, tol, start):
     t1 = Time.now()
     c = event.distance.to('lyr') / 2
     d1 = stars['dist'] # dist to stars
-    d2 = c1.separation_3d(c0) # dist from all GCNS stars to SN 1987A
+    d2 = c1.separation_3d(event) # dist from all GCNS stars to SN 1987A
     
     etime = d2.to('lyr') + d1.to('lyr') - (2*c)
     
@@ -170,9 +181,119 @@ def login(username, password):
 
 def logout():
     Gaia.logout()
+
+def getLC(lc_table, source_id, band):
+    # Returns light curve for a specific band and source id from a light curve
+    # table of all sources in all bands
+    source_mask = lc_table['source_id'] == source_id
+    source_lc = lc_table[source_mask]
+    band_mask = source_lc['band'] == band
+    band_lc = source_lc[band_mask]
+
+    return band_lc
     
     
+def varClass(source_id):
+    # Returns the Gaia variable classification for a given source id
+
+    query = f"SELECT best_class_name \
+            FROM gaiadr3.vari_classifier_result \
+            WHERE gaiadr3.vari_classifier_result.source_id = '{source_id}'"
+
+    job = Gaia.launch_job_async(query, output_format='fits')
+    results = job.get_results()
+    return results['best_class_name']
+
+
+def varClasses(source_id_tup):
+    # Returns the Gaia variable classifications for a tuple of source ids
+
+    query = f"SELECT best_class_name, source_id \
+            FROM gaiadr3.vari_classifier_result \
+            WHERE gaiadr3.vari_classifier_result.source_id IN {source_id_tup}"
+
+    job = Gaia.launch_job_async(query, output_format='fits')
+    results = job.get_results()
+    return results
+
+def xTime(star, c0=None, t0=None):
+    # Returns the ellipsoid crossing time of the SkyCoord object(s)
+    # if c0 and t0 are None, the ellipsoid defaults to SN 1987A
+
+    if not c0 or not t0:
+        # Properties of SN1987A
+        t0 = Time({'year': 1987, 'month': 2, 'day': 23}, format='ymdhms')
+
+        c0_radec = SkyCoord.from_name('SN 1987A')
+
+        # Panagia (1999) https://ui.adsabs.harvard.edu/abs/1999IAUS..190..549P/abstract
+        d0 = 51.4 * u.kpc
+        d0_err = 1.2 * u.kpc
+
+        c0 = SkyCoord(ra=c0_radec.ra, dec=c0_radec.dec, distance=d0)
     
+    
+    c = c0.distance.to('lyr') / 2
+    d1 = star.distance # dist to stars
+    d2 = star.separation_3d(c0) # dist from all GCNS stars to SN 1987A
+    
+    etime = d2.to('lyr') + d1.to('lyr') - (2*c)
+    xtime = etime.value*u.year + t0
+    return xtime.jd
+
+
+def plotLC(sid, star, glcDict, bplcDict, rplcDict, y='flux'):
+    # Plots the light curves for a star in the G, BP, and RP bands
+    # Needs the source id of the star, the SkyCoord object corresponding to the star
+    # and three dictionaries containing the source ids of stars as keys and the
+    # light curve tables as items
+
+    xtime = xTime(star)[0]
+
+    glcTimes = Time(glcDict[sid]['time'].value + 2455197.5, format='jd')
+    blcTimes = Time(bplcDict[sid]['time'].value + 2455197.5, format='jd')
+    rlcTimes = Time(rplcDict[sid]['time'].value + 2455197.5, format='jd')
+    
+    if y != 'flux':
+        glcY = glcDict[sid]['mag']
+        blcY = bplcDict[sid]['mag']
+        rlcY = rplcDict[sid]['mag']
+        gerr = None
+        berr = None
+        rerr = None
+
+    else:
+        glcY = glcDict[sid]['flux']
+        blcY = bplcDict[sid]['flux']
+        rlcY = rplcDict[sid]['flux']
+        gerr = glcDict[sid]['flux_error']
+        berr = bplcDict[sid]['flux_error']
+        rerr = rplcDict[sid]['flux_error']
+
+    fig, ax = plt.subplots(3, sharex=True, figsize=[10,6], dpi=100)
+
+    ax[0].errorbar(glcTimes.value, glcY, yerr=gerr, fmt='o', c='green')
+    ax[1].errorbar(blcTimes.value, blcY, yerr=berr, fmt='o', c='blue')
+    ax[2].errorbar(rlcTimes.value, rlcY, yerr=rerr, fmt='o', c='red')
+
+
+    ax[0].vlines(xtime, ymin=min(glcY.value), ymax=max(glcY.value), color='green')
+    ax[1].vlines(xtime, ymin=min(blcY.value), ymax=max(blcY.value), color='blue')
+    ax[2].vlines(xtime, ymin=min(rlcY.value), ymax=max(rlcY.value), color='red')
+
+    ax[2].set_xlabel('BJD')
+
+    if y != 'flux':
+        ax[1].set_ylabel('Mag')
+    else:
+        ax[1].set_ylabel('Flux (electrons/s)')
+    ax[0].set_title(f'Source {sid}')
+    
+
+
+
+
+
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -251,26 +372,3 @@ if __name__ == '__main__':
 
     
     c1, stars = queryGaia(v, ns, num, save)
-    
-
-
-
-
-    
-    # Properties of SN1987A
-    # t0 = Time({'year': 1987, 'month': 2, 'day': 23}, format='ymdhms')
-
-    # c0_radec = SkyCoord.from_name('SN 1987A')
-
-    # Panagia (1999) https://ui.adsabs.harvard.edu/abs/1999IAUS..190..549P/abstract
-    # d0 = 51.4 * u.kpc
-    # d0_err = 1.2 * u.kpc
-
-    # c0 = SkyCoord(ra=c0_radec.ra, dec=c0_radec.dec, distance=d0)
-    
-    # if cross:
-    #    c1_x, stars_x = crossEllipsoid(c0, t0, c1, stars, tol, start)
-    #    print(f'{len(stars_x)} stars have crossed the ellipsoid since {start}')
-    # else:
-    #    c1_on, stars_on = onEllipsoid(c0, t0, c1, stars, tol)
-    #    print(f'There are currently {len(stars_on)} stars on the ellipsoid')
