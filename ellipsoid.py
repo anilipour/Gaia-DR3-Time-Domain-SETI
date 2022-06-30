@@ -44,20 +44,21 @@ def queryGaia(var, gcns, num, save):
             sf = 'GCNS.fits'
             
     elif gcns == False:
-        dist_col = 'distance_gspphot'
+        dist_col = 'r_med_photogeo'
         cartesian = False
         ra_col, dec_col = 'ra', 'dec'
-        dist84_col, dist16_col = 'distance_gspphot_upper', 'distance_gspphot_lower'
+        dist84_col, dist16_col = 'r_hi_photogeo', 'r_lo_photogeo'
         gmag_col, bpmag_col, rpmag_col = 'phot_g_mean_mag', 'phot_bp_mean_mag', 'phot_rp_mean_mag'
         
-        query_select = f'SELECT TOP {num} source.{dist_col}, \
-                        source.{ra_col}, source.{dec_col}, source.{dist84_col}, source.{dist16_col}, \
+        query_select = f'SELECT TOP {num} dist.{dist_col}, \
+                        source.{ra_col}, source.{dec_col}, dist.{dist84_col}, dist.{dist16_col}, \
                         source.{gmag_col}, source.{bpmag_col}, source.{rpmag_col}, source.source_id'
         
         if var == True:
             query = f"{query_select} \
             FROM gaiadr3.vari_summary AS var \
-            JOIN gaiadr3.gaia_source AS source ON var.source_id=source.source_id \
+            INNER JOIN gaiadr3.gaia_source AS source ON var.source_id=source.source_id \
+            INNER JOIN external.gaiaedr3_distance AS dist ON var.source_id=dist.source_id \
             WHERE source.has_mcmc_gspphot='true'"
             sf = 'Gaia_var.fits'
         
