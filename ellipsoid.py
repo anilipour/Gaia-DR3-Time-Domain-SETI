@@ -14,12 +14,13 @@ import argparse
 import matplotlib.pyplot as plt
 
 
-def queryGaia(var, gcns, num, save):
+def queryGaia(var, gcns, num, save, c):
     # Retrieves data from Gaia archive
     # var = variable stars or all stars?
     # gcns = GCNS or all Gaia stars?
     # num = max number of stars to retrieve
     # save = save to a file? 
+    # c = include variable classification?
     
     if gcns == True:
         dist_col = 'dist_50'
@@ -32,11 +33,23 @@ def queryGaia(var, gcns, num, save):
         query_select = f'SELECT TOP {num} gcns.{dist_col}, gcns.{x_col}, gcns.{y_col}, gcns.{z_col}, \
                         gcns.{ra_col}, gcns.{dec_col}, gcns.{dist84_col}, gcns.{dist16_col}, \
                         gcns.{gmag_col}, gcns.{bpmag_col}, gcns.{rpmag_col}, gcns.source_id'
+        
+        
         if var == True:
-            query = f'{query_select} \
-            FROM gaiadr3.vari_summary AS var \
-            JOIN external.gaiaedr3_gcns_main_1 AS gcns ON var.source_id=gcns.source_id'
-            sf = 'GCNS_var.fits'
+            
+            if c:
+                query_select += ', vclass.best_class_name'
+                sf = 'GCNS_var_class.fits'
+                query = f"{query_select} \
+                        FROM gaiadr3.vari_summary AS var \
+                        INNER JOIN external.gaiaedr3_gcns_main_1 AS gcns ON var.source_id=gcns.source_id \
+                        INNER JOIN gaiadr3.vari_classifier_result AS vclass ON vclass.source_id = var.source_id"
+                        
+            else:
+                query = f'{query_select} \
+                        FROM gaiadr3.vari_summary AS var \
+                        JOIN external.gaiaedr3_gcns_main_1 AS gcns ON var.source_id=gcns.source_id'
+                sf = 'GCNS_var.fits'
             
         elif var == False:
             query = f'{query_select} \
@@ -53,19 +66,31 @@ def queryGaia(var, gcns, num, save):
         query_select = f'SELECT TOP {num} dist.{dist_col}, \
                         source.{ra_col}, source.{dec_col}, dist.{dist84_col}, dist.{dist16_col}, \
                         source.{gmag_col}, source.{bpmag_col}, source.{rpmag_col}, source.source_id'
-        
+               
+
         if var == True:
-            query = f"{query_select} \
-            FROM gaiadr3.vari_summary AS var \
-            INNER JOIN gaiadr3.gaia_source AS source ON var.source_id=source.source_id \
-            INNER JOIN external.gaiaedr3_distance AS dist ON var.source_id=dist.source_id \
-            WHERE source.has_mcmc_gspphot='true'"
-            sf = 'Gaia_var.fits'
+            if c:
+                query_select += ', vclass.best_class_name'
+                sf = 'Gaia_var_class.fits'
+                query = f"{query_select} \
+                        FROM gaiadr3.vari_summary AS var \
+                        INNER JOIN gaiadr3.gaia_source AS source ON var.source_id=source.source_id \
+                        INNER JOIN external.gaiaedr3_distance AS dist ON var.source_id=dist.source_id \
+                        INNER JOIN gaiadr3.vari_classifier_result AS vclass ON vclass.source_id = var.source_id \
+                        WHERE source.has_epoch_photometry='true'"
+                        
+            else:
+                query = f"{query_select} \
+                        FROM gaiadr3.vari_summary AS var \
+                        INNER JOIN gaiadr3.gaia_source AS source ON var.source_id=source.source_id \
+                        INNER JOIN external.gaiaedr3_distance AS dist ON var.source_id=dist.source_id \
+                        WHERE source.has_epoch_photometry='true'"
+                sf = 'Gaia_var.fits'
         
         elif var == False:
             query = f"{query_select} \
             FROM gaiadr3.gaia_source AS source \
-            WHERE source.has_mcmc_gspphot='true'"
+            JOIN external.gaiaedr3_distance AS dist ON source.source_id=dist.source_id"
             sf = 'Gaia.fits'
             
 
@@ -87,7 +112,11 @@ def queryGaia(var, gcns, num, save):
         ycoord = c1.transform_to('galactocentric').y.to('pc')
         zcoord = c1.transform_to('galactocentric').z.to('pc') - 20.8*u.pc
     
-    stars = QTable([results['source_id'], results[ra_col], results[dec_col], results[dist_col], results[dist84_col], results[dist16_col], xcoord, ycoord, zcoord, results[gmag_col], results[bpmag_col], results[rpmag_col]],
+    if c:
+        stars = QTable([results['source_id'], results[ra_col], results[dec_col], results[dist_col], results[dist84_col], results[dist16_col], xcoord, ycoord, zcoord, results[gmag_col], results[bpmag_col], results[rpmag_col], results['best_class_name']],
+                   names=('id', 'ra', 'dec', 'dist', 'dist84', 'dist16', 'x', 'y', 'z', 'g', 'bp', 'rp', 'class'))
+    else:
+        stars = QTable([results['source_id'], results[ra_col], results[dec_col], results[dist_col], results[dist84_col], results[dist16_col], xcoord, ycoord, zcoord, results[gmag_col], results[bpmag_col], results[rpmag_col]],
                    names=('id', 'ra', 'dec', 'dist', 'dist84', 'dist16', 'x', 'y', 'z', 'g', 'bp', 'rp'))
 
 
@@ -336,6 +365,10 @@ if __name__ == '__main__':
         '--save', type=int, default=1,
         help='Save to a table (1)?'
     )
+    parser.add_argument(
+        '--c', type=int, default=0,
+        help='Include variable classification (1)?'
+    )
   
 
     args = parser.parse_args()
@@ -359,6 +392,11 @@ if __name__ == '__main__':
         save = True
     else:
         save = False
+
+    if args.c == 1:
+        c = True
+    else:
+        c = False
     
     
     
@@ -372,4 +410,4 @@ if __name__ == '__main__':
         login(username, password)
 
     
-    c1, stars = queryGaia(v, ns, num, save)
+    c1, stars = queryGaia(v, ns, num, save, c)

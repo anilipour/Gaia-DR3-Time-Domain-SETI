@@ -19,11 +19,18 @@ to get the files
 ```
 with all the variable stars in GCNS and Gaia. A Gaia account is required to download more than 3 million rows at a time. By default, the number of rows retrieved (```--num```) is set to 100,000. Although Gaia DR3 contains nearly 12 million variable stars, the number of those with reported distances and epoch photometry is slightly less than 6 million. 
 
-To retrieve variable and non-variable stars, add the argument ``` --v 0 ```. These will be saved to the files
+To retrieve variable and non-variable stars, add the argument ```--v 0```. These will be saved to the files
 ```
 ../GCNS.fits
 ../Gaia.fits
 ```
+
+And, to include Gaia variable star classifications, add the argument ```--c 1```. These will be saved to the files
+```
+../GCNS_var_class.fits
+../Gaia_var_class.fits
+```
+
 In addition, `ellipsoid.py` contains several useful functions for SETI ellipsoid calculations, light curve plotting, and Gaia querying.
 
 
@@ -39,7 +46,7 @@ The Ellipsoid Lightcurves python notebook is used to plot the Gaia light curves 
 
 SETI Ellipsoid Analysis
 --------
-THe SN1987A Ellipsoid python notebooks plot the SETI Ellipsoid, using SN 1987A as the conspicuous event, for subsets of the Gaia data that are retrieved as described above. The notebooks also contain various analyses performed on the stars that are in or on, or those that have recently crossed, the ellipsoid.
+The SN1987A Ellipsoid python notebooks plot the SETI Ellipsoid, using SN 1987A as the conspicuous event, for subsets of the Gaia data that are retrieved as described above. The notebooks also contain various analyses performed on the stars that are in or on, or those that have recently crossed, the ellipsoid.
 
 
 Dependencies
