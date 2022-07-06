@@ -198,9 +198,41 @@ def crossEllipsoid(event, t0,  c1, stars, tol, start):
     gstart = Time(str(start), format='decimalyear')
     gstart_t0 = (gstart-t0).to('year').value # years between start time and time the event was observed on Earth
 
-    crossings = ((etime.value >= gstart_t0-tol) & # since start
-      (etime.value < ((t1-t0).to('year').value+0.1)) # up to 0.1 years from now
+    crossings = ((etime.value >= gstart_t0-tol) & # since start (minus tolerance)
+      (etime.value < ((t1-t0).to('year').value+tol)) # up to (tolerance) years from now
      ) 
+
+    
+    return c1[crossings], stars[crossings]
+
+
+def crossErrorEllipsoid(event, t0,  c1, stars, tol, start=Time('2014-07-25T10:30'), end=Time('2017-05-28T08:44')):
+    # event is a SkyCoord with RA, Dec, distance of event (i.e. SN 1987A)
+    # t0 is the time event was observed on Earth
+    # c1 is SkyCoord with RA, Dec, distance of stars
+    # stars is astropy Table with necessary info 
+    # tol is the tolerance for stars crossing the ellipse
+    # start is the start time from when we consider stars crossing the ellipse
+    # end is the end time from whn we consider stars crossing the ellipse
+    # The default start and end times are the data collection period of Gaia DR3,
+    # as detailed at cosmos.esa.int/web/gaia/dr3
+    # Returns table of stars that have crossed the ellipse between start and end,
+    # and the error in the crossing time is also between start and end 
+    
+    c = event.distance.to('lyr') / 2
+    d1 = stars['dist'] # dist to stars
+    d2 = c1.separation_3d(event) # dist from all GCNS stars to SN 1987A
+    
+    derror = (((stars['dist84'] - stars['dist']) + (stars['dist'] - stars['dist16']))/2).to('lyr').value
+    # distance error to the stars dominates the error in crossing time
+    print(derror)
+    etime = d2.to('lyr') + d1.to('lyr') - (2*c)
+    
+    gstart_t0 = (start-t0).to('year').value # years between start time and time the event was observed on Earth
+
+    crossings = ((etime.value - derror >= gstart_t0-tol) & # since start (minus tolerance)
+      (etime.value + derror < ((end-t0).to('year').value+tol)) # up to (tolerance) years from now
+    )
 
     
     return c1[crossings], stars[crossings]
