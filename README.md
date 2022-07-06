@@ -10,14 +10,14 @@ Four sets of data can be downloaded with `ellipsoid.py`: all Gaia stars, all Gai
 Run
 ``` 
 python ellipsoid.py
-python ellipsoid.py --num 6000000 --ns 0 --u {Gaia username} --p {Gaia password}
+python ellipsoid.py --num 10000000 --ns 0 --u {Gaia username} --p {Gaia password}
 ```
 to get the files
 ```
 ../GCNS_var.fits
 ../Gaia_var.fits
 ```
-with all the variable stars in GCNS and Gaia. A Gaia account is required to download more than 3 million rows at a time. By default, the number of rows retrieved (```--num```) is set to 100,000. Although Gaia DR3 contains nearly 12 million variable stars, the number of those with reported distances and epoch photometry is slightly less than 6 million. 
+with all the variable stars in GCNS and Gaia. A Gaia account is required to download more than 3 million rows at a time. By default, the number of rows retrieved (```--num```) is set to 100,000. Although Gaia DR3 contains nearly 12 million variable stars, the number of those with reported distances and epoch photometry is slightly less than 10 million. 
 
 To retrieve variable and non-variable stars, add the argument ```--v 0```. These will be saved to the files
 ```

@@ -272,13 +272,16 @@ def xTime(star, c0=None, t0=None):
     return xtime.jd
 
 
-def plotLC(sid, star, glcDict, bplcDict, rplcDict, y='flux'):
+def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux'):
     # Plots the light curves for a star in the G, BP, and RP bands
-    # Needs the source id of the star, the SkyCoord object corresponding to the star
+    # Needs the source id of the star, the SkyCoord object corresponding to the star,
+    # the row of the table corresponding to the star,
     # and three dictionaries containing the source ids of stars as keys and the
     # light curve tables as items
 
     xtime = xTime(star)[0]
+
+    derror = (((star_row['dist84'] - star_row['dist']) + (star_row['dist'] - star_row['dist16']))/2).to('lyr').value*365.25
 
     glcTimes = Time(glcDict[sid]['time'].value + 2455197.5, format='jd')
     blcTimes = Time(bplcDict[sid]['time'].value + 2455197.5, format='jd')
@@ -300,16 +303,27 @@ def plotLC(sid, star, glcDict, bplcDict, rplcDict, y='flux'):
         berr = bplcDict[sid]['flux_error']
         rerr = rplcDict[sid]['flux_error']
 
-    fig, ax = plt.subplots(3, sharex=True, figsize=[10,6], dpi=100)
+    fig, ax = plt.subplots(3, sharex=True, figsize=[8,6], dpi=150)
 
-    ax[0].errorbar(glcTimes.value, glcY, yerr=gerr, fmt='o', c='green')
-    ax[1].errorbar(blcTimes.value, blcY, yerr=berr, fmt='o', c='blue')
-    ax[2].errorbar(rlcTimes.value, rlcY, yerr=rerr, fmt='o', c='red')
+    
+    ax[0].errorbar(glcTimes.value, glcY, yerr=gerr, fmt='o', c='green', label='G', ms=3, elinewidth=1)
+    ax[1].errorbar(blcTimes.value, blcY, yerr=berr, fmt='o', c='blue', label='BP', ms=3, elinewidth=1)
+    ax[2].errorbar(rlcTimes.value, rlcY, yerr=rerr, fmt='o', c='red', label='RP', ms=3, elinewidth=1)
 
 
-    ax[0].vlines(xtime, ymin=min(glcY.value), ymax=max(glcY.value), color='green')
-    ax[1].vlines(xtime, ymin=min(blcY.value), ymax=max(blcY.value), color='blue')
-    ax[2].vlines(xtime, ymin=min(rlcY.value), ymax=max(rlcY.value), color='red')
+    ax[0].vlines(xtime, ymin=min((glcY-gerr).value), ymax=max((glcY+gerr).value), color='green')
+    ax[1].vlines(xtime, ymin=min((blcY-berr).value), ymax=max((blcY+berr).value), color='blue')
+    ax[2].vlines(xtime, ymin=min((rlcY-rerr).value), ymax=max((rlcY+rerr).value), color='red')
+    
+    ax[0].vlines([xtime+derror, xtime-derror],  ymin=min((glcY-gerr).value), ymax=max((glcY+gerr).value), color='green', ls='dashed')
+    ax[1].vlines([xtime+derror, xtime-derror],  ymin=min((blcY-berr).value), ymax=max((blcY+berr).value), color='blue', ls='dashed')
+    ax[2].vlines([xtime+derror, xtime-derror],  ymin=min((rlcY-rerr).value), ymax=max((rlcY+rerr).value), color='red', ls='dashed')
+
+
+
+    ax[0].legend(loc='best')
+    ax[1].legend(loc='best')
+    ax[2].legend(loc='best')
 
     ax[2].set_xlabel('BJD')
 
