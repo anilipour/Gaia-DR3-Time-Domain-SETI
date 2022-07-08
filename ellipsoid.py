@@ -8,6 +8,7 @@ from astropy import units as u
 from astropy.time import Time
 from astropy.table import Table, QTable
 import os
+import scipy.stats
 
 from astroquery.gaia import Gaia
 import argparse
@@ -225,7 +226,6 @@ def crossErrorEllipsoid(event, t0,  c1, stars, tol, start=Time('2014-07-25T10:30
     
     derror = (((stars['dist84'] - stars['dist']) + (stars['dist'] - stars['dist16']))/2).to('lyr').value
     # distance error to the stars dominates the error in crossing time
-    print(derror)
     etime = d2.to('lyr') + d1.to('lyr') - (2*c)
     
     gstart_t0 = (start-t0).to('year').value # years between start time and time the event was observed on Earth
@@ -303,8 +303,68 @@ def xTime(star, c0=None, t0=None):
     xtime = etime.value*u.year + t0
     return xtime.jd
 
+def medLC(xtime, lc):
+    leftY, rightY = [], []
 
-def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux'):
+    for key in lc:
+        if key < xtime:
+            leftY.append(lc[key])
+        else:
+            rightY.append(lc[key])
+    
+    medLeft = np.median(leftY)
+    medRight = np.median(rightY)
+    madLeft = scipy.stats.median_absolute_deviation(leftY)
+    madRight = scipy.stats.median_absolute_deviation(rightY)
+    return medLeft, medRight, madLeft, madRight
+
+
+def getMedLC(sid, star, glcDict, bplcDict, rplcDict, y='flux'):
+    # Calculates the medians before and after crossing time
+    
+    xtime = xTime(star)[0]
+    glcTimes = Time(glcDict[sid]['time'].value + 2455197.5, format='jd')
+    blcTimes = Time(bplcDict[sid]['time'].value + 2455197.5, format='jd')
+    rlcTimes = Time(rplcDict[sid]['time'].value + 2455197.5, format='jd')
+
+    if y != 'flux':
+        glcY = glcDict[sid]['mag']
+        blcY = bplcDict[sid]['mag']
+        rlcY = rplcDict[sid]['mag']
+
+    else:
+        glcY = glcDict[sid]['flux']
+        blcY = bplcDict[sid]['flux']
+        rlcY = rplcDict[sid]['flux']
+
+    gLC = dict(zip(glcTimes.value, glcY.value))
+    bLC = dict(zip(blcTimes.value, blcY.value))
+    rLC = dict(zip(rlcTimes.value, rlcY.value))
+
+    gLeftMed, gRightMed, gLeftMAD, gRightMAD = medLC(xtime, gLC)
+    bLeftMed, bRightMed, bLeftMAD, bRightMAD = medLC(xtime, bLC)
+    rLeftMed, rRightMed, rLeftMAD, rRightMAD = medLC(xtime, rLC)
+
+    return gLeftMed, gRightMed, gLeftMAD, gRightMAD, bLeftMed, bRightMed, bLeftMAD, bRightMAD, rLeftMed, rRightMed, rLeftMAD, rRightMAD
+
+
+
+
+def compMedLC(sid, star, glcDict, bplcDict, rplcDict, y='flux'):
+    gLeftMed, gRightMed, gLeftMAD, gRightMAD, bLeftMed, bRightMed, bLeftMAD, bRightMAD, rLeftMed, rRightMed, rLeftMAD, rRightMAD = getMedLC(sid, star, glcDict, bplcDict, rplcDict, y)
+    
+    if gRightMed > gLeftMed + 3*gLeftMAD or gRightMed < gLeftMed - 3*gLeftMAD:
+        return True
+    elif bRightMed > bLeftMed + 3*bLeftMAD or bRightMed < bLeftMed - 3*bLeftMAD:
+        return True
+    elif rRightMed > rLeftMed + 3*rLeftMAD or rRightMed < rLeftMed - 3*rLeftMAD:
+        return True
+    else:
+        return False
+    
+
+
+def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=True):
     # Plots the light curves for a star in the G, BP, and RP bands
     # Needs the source id of the star, the SkyCoord object corresponding to the star,
     # the row of the table corresponding to the star,
@@ -365,6 +425,22 @@ def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux'):
         ax[1].set_ylabel('Flux (electrons/s)')
     ax[0].set_title(f'Source {sid}')
     
+    if median:
+        gLeftMed, gRightMed, gLeftMAD, gRightMAD, bLeftMed, bRightMed, bLeftMAD, bRightMAD, rLeftMed, rRightMed, rLeftMAD, rRightMAD = getMedLC(sid, star, glcDict, bplcDict, rplcDict, y)
+        ax[0].hlines(gLeftMed, xmin=min(glcTimes.value), xmax=xtime, color='green', linewidth=0.5)
+        ax[0].hlines([gLeftMed+3*gLeftMAD, gLeftMed-3*gLeftMAD], xmin=min(glcTimes.value), xmax=xtime, color='green', linewidth=0.5, ls = 'dashed')
+        ax[0].hlines(gRightMed, xmin=xtime, xmax=max(glcTimes.value), color='green', linewidth=0.5)
+        ax[0].hlines([gRightMed+3*gRightMAD, gRightMed-3*gRightMAD], xmin=xtime, xmax=max(glcTimes.value), color='green', linewidth=0.5, ls = 'dashed')
+
+        ax[1].hlines(bLeftMed, xmin=min(blcTimes.value), xmax=xtime, color='blue', linewidth=0.5)
+        ax[1].hlines([bLeftMed+3*bLeftMAD, bLeftMed-3*bLeftMAD], xmin=min(blcTimes.value), xmax=xtime, color='blue', linewidth=0.5, ls = 'dashed')
+        ax[1].hlines(bRightMed, xmin=xtime, xmax=max(blcTimes.value), color='blue', linewidth=0.5)
+        ax[1].hlines([bRightMed+3*bRightMAD, bRightMed-3*bRightMAD], xmin=xtime, xmax=max(blcTimes.value), color='blue', linewidth=0.5, ls = 'dashed')
+
+        ax[2].hlines(rLeftMed, xmin=min(rlcTimes.value), xmax=xtime, color='red', linewidth=0.5)
+        ax[2].hlines([rLeftMed+3*rLeftMAD, rLeftMed-3*rLeftMAD], xmin=min(rlcTimes.value), xmax=xtime, color='red', linewidth=0.5, ls = 'dashed')
+        ax[2].hlines(rRightMed, xmin=xtime, xmax=max(rlcTimes.value), color='red', linewidth=0.5)
+        ax[2].hlines([rRightMed+3*rRightMAD, rRightMed-3*rRightMAD], xmin=xtime, xmax=max(rlcTimes.value), color='red', linewidth=0.5, ls = 'dashed')
 
 
 
