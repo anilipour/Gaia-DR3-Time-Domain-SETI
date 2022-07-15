@@ -312,8 +312,8 @@ def medLC(xtime, lc):
         else:
             rightY.append(lc[key])
     
-    medLeft = np.median(leftY)
-    medRight = np.median(rightY)
+    medLeft = np.nanmedian(leftY)
+    medRight = np.nanmedian(rightY)
     madLeft = scipy.stats.median_absolute_deviation(leftY)
     madRight = scipy.stats.median_absolute_deviation(rightY)
     return medLeft, medRight, madLeft, madRight
@@ -364,7 +364,7 @@ def compMedLC(sid, star, glcDict, bplcDict, rplcDict, y='flux'):
     
 
 
-def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=True):
+def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=True, normalize=True):
     # Plots the light curves for a star in the G, BP, and RP bands
     # Needs the source id of the star, the SkyCoord object corresponding to the star,
     # the row of the table corresponding to the star,
@@ -397,6 +397,17 @@ def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=Tr
 
     fig, ax = plt.subplots(3, sharex=True, figsize=[8,6], dpi=150)
 
+    glcMed = np.nanmedian(glcY)
+    blcMed = np.nanmedian(blcY)
+    rlcMed = np.nanmedian(rlcY)
+
+    glcY /= glcMed
+    blcY /= blcMed
+    rlcY /= rlcMed
+
+    gerr /= glcMed
+    berr /= blcMed
+    rerr /= rlcMed
     
     ax[0].errorbar(glcTimes.value, glcY, yerr=gerr, fmt='o', c='green', label='G', ms=3, elinewidth=1)
     ax[1].errorbar(blcTimes.value, blcY, yerr=berr, fmt='o', c='blue', label='BP', ms=3, elinewidth=1)
@@ -420,9 +431,16 @@ def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=Tr
     ax[2].set_xlabel('BJD')
 
     if y != 'flux':
-        ax[1].set_ylabel('Mag')
+        if normalize:
+            ax[1].set_ylabel('Normlized Mag')
+        else:
+            ax[1].set_ylabel('Mag')
     else:
-        ax[1].set_ylabel('Flux (electrons/s)')
+        if normalize:
+            ax[1].set_ylabel('Normalized Flux')
+        else:
+            ax[1].set_ylabel('Flux (e/sec)')
+
     ax[0].set_title(f'Source {sid}')
     
     if median:
