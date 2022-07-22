@@ -319,60 +319,54 @@ def medLC(xtime, lc):
     return medLeft, medRight, madLeft, madRight
 
 
-def getMedLC(sid, star, glcDict, bplcDict, rplcDict, y='flux'):
+def getMedLC(sid, star, lcDict, y='flux', time=None):
     # Calculates the medians before and after crossing time
     
-    xtime = xTime(star)[0]
-    glcTimes = Time(glcDict[sid]['time'].value + 2455197.5, format='jd')
-    blcTimes = Time(bplcDict[sid]['time'].value + 2455197.5, format='jd')
-    rlcTimes = Time(rplcDict[sid]['time'].value + 2455197.5, format='jd')
-
+    if time==None:
+        xtime = xTime(star)[0]
+    else:
+        xtime = time
+    lcTimes = Time(lcDict[sid]['time'].value + 2455197.5, format='jd')
+    
     if y != 'flux':
-        glcY = glcDict[sid]['mag']
-        blcY = bplcDict[sid]['mag']
-        rlcY = rplcDict[sid]['mag']
+        lcY = lcDict[sid]['mag']
 
     else:
-        glcY = glcDict[sid]['flux']
-        blcY = bplcDict[sid]['flux']
-        rlcY = rplcDict[sid]['flux']
+        lcY = lcDict[sid]['flux']
 
-    gLC = dict(zip(glcTimes.value, glcY.value))
-    bLC = dict(zip(blcTimes.value, blcY.value))
-    rLC = dict(zip(rlcTimes.value, rlcY.value))
-
-    gLeftMed, gRightMed, gLeftMAD, gRightMAD = medLC(xtime, gLC)
-    bLeftMed, bRightMed, bLeftMAD, bRightMAD = medLC(xtime, bLC)
-    rLeftMed, rRightMed, rLeftMAD, rRightMAD = medLC(xtime, rLC)
-
-    return gLeftMed, gRightMed, gLeftMAD, gRightMAD, bLeftMed, bRightMed, bLeftMAD, bRightMAD, rLeftMed, rRightMed, rLeftMAD, rRightMAD
-
-
-
-
-def compMedLC(sid, star, glcDict, bplcDict, rplcDict, y='flux'):
-    gLeftMed, gRightMed, gLeftMAD, gRightMAD, bLeftMed, bRightMed, bLeftMAD, bRightMAD, rLeftMed, rRightMed, rLeftMAD, rRightMAD = getMedLC(sid, star, glcDict, bplcDict, rplcDict, y)
+    lc = dict(zip(lcTimes.value, lcY.value))
     
-    if gRightMed > gLeftMed + 3*gLeftMAD or gRightMed < gLeftMed - 3*gLeftMAD:
+
+    leftMed, rightMed, leftMAD, rightMAD = medLC(xtime, lc)
+
+    return leftMed, rightMed, leftMAD, rightMAD
+
+
+
+
+def compMedLC(sid, star, lcDict, y='flux', time=None):
+    leftMed, rightMed, leftMAD, rightMAD, = getMedLC(sid, star, lcDict, y, time)
+    
+    if rightMed > leftMed + 3*leftMAD or rightMed < leftMed - 3*leftMAD:
         return True
-    elif bRightMed > bLeftMed + 3*bLeftMAD or bRightMed < bLeftMed - 3*bLeftMAD:
-        return True
-    elif rRightMed > rLeftMed + 3*rLeftMAD or rRightMed < rLeftMed - 3*rLeftMAD:
+    elif leftMed > rightMed + 3*rightMAD or leftMed < rightMed - 3*rightMAD:      
         return True
     else:
         return False
-    
+ 
 
 
-def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=True, normalize=True):
+def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=True, normalize=True, time=None):
     # Plots the light curves for a star in the G, BP, and RP bands
     # Needs the source id of the star, the SkyCoord object corresponding to the star,
     # the row of the table corresponding to the star,
     # and three dictionaries containing the source ids of stars as keys and the
     # light curve tables as items
 
-    xtime = xTime(star)[0]
-
+    if time==None:
+        xtime = xTime(star)[0]
+    else:
+        xtime=time
     derror = (((star_row['dist84'] - star_row['dist']) + (star_row['dist'] - star_row['dist16']))/2).to('lyr').value*365.25
 
     glcTimes = Time(glcDict[sid]['time'].value + 2455197.5, format='jd')
@@ -444,7 +438,9 @@ def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=Tr
     ax[0].set_title(f'Source {sid}')
     
     if median:
-        gLeftMed, gRightMed, gLeftMAD, gRightMAD, bLeftMed, bRightMed, bLeftMAD, bRightMAD, rLeftMed, rRightMed, rLeftMAD, rRightMAD = getMedLC(sid, star, glcDict, bplcDict, rplcDict, y)
+        gLeftMed, gRightMed, gLeftMAD, gRightMAD = getMedLC(sid, star, glcDict, y)
+        bLeftMed, bRightMed, bLeftMAD, bRightMAD = getMedLC(sid, star, bplcDict, y)
+        rLeftMed, rRightMed, rLeftMAD, rRightMAD = getMedLC(sid, star, rplcDict, y)
         ax[0].hlines(gLeftMed, xmin=min(glcTimes.value), xmax=xtime, color='green', linewidth=0.5)
         ax[0].hlines([gLeftMed+3*gLeftMAD, gLeftMed-3*gLeftMAD], xmin=min(glcTimes.value), xmax=xtime, color='green', linewidth=0.5, ls = 'dashed')
         ax[0].hlines(gRightMed, xmin=xtime, xmax=max(glcTimes.value), color='green', linewidth=0.5)
