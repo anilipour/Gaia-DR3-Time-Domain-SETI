@@ -179,7 +179,7 @@ def onEllipsoid(event, t0,  c1, stars, tol):
     return c1[OYES], stars[OYES]
 
 
-def crossEllipsoid(event, t0,  c1, stars, tol, start):
+def crossEllipsoid(event, t0,  c1, stars, tol, start, end=None):
     # event is a SkyCoord with RA, Dec, distance of event (i.e. SN 1987A)
     # t0 is the time event was observed on Earth
     # c1 is SkyCoord with RA, Dec, distance of stars
@@ -188,19 +188,19 @@ def crossEllipsoid(event, t0,  c1, stars, tol, start):
     # start is the start time from when we consider stars crossing the ellipse
     # Returns table of stars that have crossed the ellipse since start 
     
-    
-    t1 = Time.now()
+    if end==None:
+        end = Time.now()
     c = event.distance.to('lyr') / 2
     d1 = stars['dist'] # dist to stars
     d2 = c1.separation_3d(event) # dist from all GCNS stars to SN 1987A
     
     etime = d2.to('lyr') + d1.to('lyr') - (2*c)
     
-    gstart = Time(str(start), format='decimalyear')
+    gstart = start
     gstart_t0 = (gstart-t0).to('year').value # years between start time and time the event was observed on Earth
 
     crossings = ((etime.value >= gstart_t0-tol) & # since start (minus tolerance)
-      (etime.value < ((t1-t0).to('year').value+tol)) # up to (tolerance) years from now
+      (etime.value < ((end-t0).to('year').value+tol)) # up to (tolerance) years from now
      ) 
 
     
@@ -438,9 +438,9 @@ def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=Tr
     ax[0].set_title(f'Source {sid}')
     
     if median:
-        gLeftMed, gRightMed, gLeftMAD, gRightMAD = getMedLC(sid, star, glcDict, y)
-        bLeftMed, bRightMed, bLeftMAD, bRightMAD = getMedLC(sid, star, bplcDict, y)
-        rLeftMed, rRightMed, rLeftMAD, rRightMAD = getMedLC(sid, star, rplcDict, y)
+        gLeftMed, gRightMed, gLeftMAD, gRightMAD = getMedLC(sid, star, glcDict, y, time)
+        bLeftMed, bRightMed, bLeftMAD, bRightMAD = getMedLC(sid, star, bplcDict, y, time)
+        rLeftMed, rRightMed, rLeftMAD, rRightMAD = getMedLC(sid, star, rplcDict, y, time)
         ax[0].hlines(gLeftMed, xmin=min(glcTimes.value), xmax=xtime, color='green', linewidth=0.5)
         ax[0].hlines([gLeftMed+3*gLeftMAD, gLeftMed-3*gLeftMAD], xmin=min(glcTimes.value), xmax=xtime, color='green', linewidth=0.5, ls = 'dashed')
         ax[0].hlines(gRightMed, xmin=xtime, xmax=max(glcTimes.value), color='green', linewidth=0.5)
