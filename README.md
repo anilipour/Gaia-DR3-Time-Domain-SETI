@@ -1,38 +1,41 @@
-# Gaia DR3: SETI Ellipsoid
-## Exploring the SETI Ellipsoid with Gaia DR3 Data
+# Exploring the SETI Ellipsoid with Gaia DR3
 
-
+This work builds off the SETI Ellipsoid analysis done by Davenport et al. (2022).
 
 Retrieving Data
 -------
-Four sets of data can be downloaded with `ellipsoid.py`: all Gaia stars, all Gaia variable stars, all stars in the Gaia Catalogue of Nearby Stars (GCNS), and all GCNS variable stars
+The relevant Gaia data can be downloaded with `queryGaia.py`. In particular, the script can easily retrieve all Gaia stars, all Gaia variable stars, all stars in the Gaia Catalogue of Nearby Stars (GCNS), and all GCNS variable stars.
 
 Run
 ``` 
-python ellipsoid.py
-python ellipsoid.py --num 10000000 --ns 0 --u {Gaia username} --p {Gaia password}
+python queryGaia.py
+python queryGaia.py -n 10000000 -ns 0 -usr {Gaia username} -pw {Gaia password}
 ```
 to get the files
 ```
 ../GCNS_var.fits
 ../Gaia_var.fits
 ```
-with all the variable stars in GCNS and Gaia. A Gaia account is required to download more than 3 million rows at a time. By default, the number of rows retrieved (```--num```) is set to 100,000. Although Gaia DR3 contains nearly 12 million variable stars, the number of those with reported distances and epoch photometry is slightly less than 10 million. 
+with all the variable stars in GCNS and Gaia. A Gaia account is required to download more than 3 million rows at a time. By default, the number of rows retrieved (```-n```) is set to 100,000. Although Gaia DR3 contains nearly 12 million variable stars, the number of those with reported distances and epoch photometry is slightly less than 10 million. 
 
-To retrieve variable and non-variable stars, add the argument ```--v 0```. These will be saved to the files
+To retrieve variable and non-variable stars, add the argument ```-v 0```. These will be saved to the files
 ```
 ../GCNS.fits
 ../Gaia.fits
 ```
 
-And, to include Gaia variable star classifications, add the argument ```--c 1```. These will be saved to the files
+And, to include Gaia variable star classifications, add the argument ```-c 1```. These will be saved to the files
 ```
 ../GCNS_var_class.fits
 ../Gaia_var_class.fits
 ```
+The methodology for Gaia variable star classification is given by Eyer et al. (2022).
 
-In addition, `ellipsoid.py` contains several useful functions for SETI ellipsoid calculations, light curve plotting, and Gaia querying.
-
+Run 
+```
+python queryGaia.py -h
+```
+for a further description of the arguments.
 
 Light Curve Analysis
 --------
@@ -58,5 +61,10 @@ Dependencies
 * Matplotlib 
 * Scipy
 * [cubehelix](https://github.com/jradavenport/cubehelix)
+
+Citations
+---------
+1. [Davenport, James R. A. et al. "Searching the SETI Ellipsoid with Gaia." (2022).](https://arxiv.org/abs/2206.04092)
+2. [Eyer, L. et al. "Gaia Data Release 3. Summary of the variability processing and analysis." (2022).](https://arxiv.org/abs/2206.06416)
 
 
