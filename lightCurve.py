@@ -1,7 +1,9 @@
 import numpy as np
 
 from astropy.time import Time
+from astropy.timeseries import LombScargle, TimeSeries
 import scipy.stats
+from astropy import units as u
 
 import ellipsoid 
 
@@ -193,3 +195,145 @@ def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=Tr
         ax[2].hlines([rLeftMed+3*rLeftMAD, rLeftMed-3*rLeftMAD], xmin=min(rlcTimes.value), xmax=xtime, color='red', linewidth=0.5, ls = 'dashed')
         ax[2].hlines(rRightMed, xmin=xtime, xmax=max(rlcTimes.value), color='red', linewidth=0.5)
         ax[2].hlines([rRightMed+3*rRightMAD, rRightMed-3*rRightMAD], xmin=xtime, xmax=max(rlcTimes.value), color='red', linewidth=0.5, ls = 'dashed')
+
+def comparePeriod(lc, xtime, min_freq=1, max_freq=10):
+    lcTimes = Time(lc['time'].value + 2455197.5, format='jd')
+    lcFlux = lc['flux']
+    lcFerr = lc['flux_error']
+
+    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.median(lcFlux), 'flux_error' : lcFerr/np.median(lcFlux)})
+    
+    freqs = np.linspace(min_freq/u.d, max_freq/u.d, 10000)
+    power = LombScargle(lcTS.time, lcTS['flux'], lcTS['flux_error']).power(freqs)
+    best_freq = freqs[np.argmax(power)]
+
+
+    right_mask = lcTS.time.value > xtime
+    left_mask = lcTS.time.value <= xtime
+
+    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.median(lcFlux[right_mask]), 'flux_error' : lcFerr[right_mask]/np.median(lcFlux[right_mask])})
+    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.median(lcFlux[left_mask]), 'flux_error' : lcFerr[left_mask]/np.median(lcFlux[left_mask])})
+
+    power_right = LombScargle(lcTS_right.time, lcTS_right['flux'], lcTS_right['flux_error']).power(freqs)
+    power_left = LombScargle(lcTS_left.time, lcTS_left['flux'], lcTS_left['flux_error']).power(freqs)
+
+    best_freq_right = freqs[np.argmax(power_right)]
+    best_freq_left = freqs[np.argmax(power_left)]
+
+    return best_freq, best_freq_right, best_freq_left
+
+def comparePeriodPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, save=False, savefolder=None):
+    xtime = ellipsoid.xTime(star)[0]
+    
+    lc = lcDict[str(sid)]
+    lcTimes = Time(lc['time'].value + 2455197.5, format='jd')
+    lcFlux = lc['flux']
+    lcFerr = lc['flux_error']
+
+    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.median(lcFlux), 'flux_error' : lcFerr/np.median(lcFlux)})
+    
+    freqs = np.linspace(min_freq/u.d, max_freq/u.d, 20000)
+    power = LombScargle(lcTS.time, lcTS['flux'], lcTS['flux_error']).power(freqs)
+    best_freq = freqs[np.argmax(power)]
+
+
+    right_mask = lcTS.time.value > xtime
+    left_mask = lcTS.time.value <= xtime
+
+    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.median(lcFlux[right_mask]), 'flux_error' : lcFerr[right_mask]/np.median(lcFlux[right_mask])})
+    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.median(lcFlux[left_mask]), 'flux_error' : lcFerr[left_mask]/np.median(lcFlux[left_mask])})
+
+    power_right = LombScargle(lcTS_right.time, lcTS_right['flux'], lcTS_right['flux_error']).power(freqs)
+    power_left = LombScargle(lcTS_left.time, lcTS_left['flux'], lcTS_left['flux_error']).power(freqs)
+
+    best_freq_right = freqs[np.argmax(power_right)]
+    best_freq_left = freqs[np.argmax(power_left)]
+
+
+    # Create subplots grid
+    grid = plt.GridSpec(3, 4, wspace=0.2, hspace=0.45)
+    fig = plt.figure(figsize=(6, 4), dpi=250)
+
+    full_LSP = fig.add_subplot(grid[0, 0:])
+    left_LSP = fig.add_subplot(grid[1, :2])
+    right_LSP = fig.add_subplot(grid[1, 2:], sharey=left_LSP)
+    lc_plot = fig.add_subplot(grid[2, 0:])
+
+    ## Plot Periodograms
+    full_LSP.plot(freqs, power, lw=0.5, color='g', label='Full Periodogram')
+    left_LSP.plot(freqs, power_left, color='g', lw=0.5, label='Left Periodogram')
+    right_LSP.plot(freqs, power_right, color='g', lw=0.5, label='Right Periodogram')
+
+    # Add a dashed line at the peak frequency
+    full_LSP.vlines(best_freq.value, ymin=power[np.where(freqs==best_freq)[0][0]], ymax=1.2, lw=0.5, ls='--', label=f'Peak Freq: {best_freq.value:0.3f}'+' d$^{-1}$')
+    left_LSP.vlines(best_freq_left.value, ymin=power_left[np.where(freqs==best_freq_left)[0][0]], ymax=1.2, lw=0.5, ls='--', label=f'Peak Freq: {best_freq_left.value:0.3f}'+' d$^{-1}$')
+    right_LSP.vlines(best_freq_right.value, ymin=power_right[np.where(freqs==best_freq_right)[0][0]], ymax=1.2, lw=0.5, ls='--', label=f'Peak Freq: {best_freq_right.value:0.3f}'+' d$^{-1}$')
+
+    # Legend
+    full_LSP.legend(prop={'size': 4}, loc=2)
+    left_LSP.legend(prop={'size': 4}, loc=2)
+    right_LSP.legend(prop={'size': 4}, loc=2)
+
+    
+    ## Light Curve Plot
+
+    # Distance (and crossing time) error
+    derror = (((star_row['dist84'] - star_row['dist']) + (star_row['dist'] - star_row['dist16']))/2).to('lyr').value*365.25
+
+    # Plot crossing time and errors
+    lc_plot.axvline(xtime, 0, 1, color='green', lw=1)
+    lc_plot.axvline(xtime+derror, 0, 1, color='green', ls='dashed', lw=1)
+    lc_plot.axvline(xtime-derror, 0, 1, color='green', ls='dashed', lw=1)
+            
+    # Plot light curve
+    lc_plot.errorbar(lcTS.time.value, lcTS['flux'], yerr=lcTS['flux_error'], fmt='.', c='green', label='G', ms=3, elinewidth=1)
+    
+    # Get medians before and after crossing time
+    leftMed, rightMed, leftMAD, rightMAD = getMedLC(str(sid), star, lcDict)/np.median(lcFlux)
+
+    # Plot medians
+    lc_plot.hlines(leftMed, xmin=min(lcTS.time.value), xmax=xtime, color='green', linewidth=0.5)
+    lc_plot.hlines([leftMed+3*leftMAD, leftMed-3*leftMAD], xmin=min(lcTS.time.value), xmax=xtime, color='green', linewidth=0.5, ls = 'dashed')
+    lc_plot.hlines(rightMed, xmin=xtime, xmax=max(lcTS.time.value), color='green', linewidth=0.5)
+    lc_plot.hlines([rightMed+3*rightMAD, rightMed-3*rightMAD], xmin=xtime, xmax=max(lcTS.time.value), color='green', linewidth=0.5, ls = 'dashed')
+
+
+    # Set axis labels
+    full_LSP.set_xlabel('Frequency', fontsize=6)
+    full_LSP.set_ylabel('Power', fontsize=6)
+
+    left_LSP.set_xlabel('Frequency', fontsize=6)
+    left_LSP.set_ylabel('Power', fontsize=6)
+
+    right_LSP.set_xlabel('Frequency', fontsize=6)
+    right_LSP.set_ylabel('Power', fontsize=6)
+
+    lc_plot.set_xlabel('BJD', fontsize=6)
+    lc_plot.set_ylabel('Normalized Flux', fontsize=6)
+
+    full_LSP.xaxis.set_label_coords(0.5, -0.2)
+    left_LSP.xaxis.set_label_coords(0.5, -0.2)
+    right_LSP.xaxis.set_label_coords(0.5, -0.2)
+
+    full_LSP.tick_params(axis='both', which='major', labelsize=5, pad=2)
+    left_LSP.tick_params(axis='both', which='major', labelsize=5, pad=2)
+    right_LSP.tick_params(axis='x', which='major', labelsize=5, pad=2)
+    lc_plot.tick_params(axis='both', which='major', labelsize=5)
+    
+    right_LSP.get_yaxis().set_visible(False)
+
+    lc_plot.xaxis.get_offset_text().set_fontsize(5)
+
+    full_LSP.set_ylim((0,1.24))
+    left_LSP.set_ylim((0,1.24))
+
+    # Set titles
+    full_LSP.set_title(f'Source {sid} Lomb-Scargle Periodograms and Light Curve', fontsize=8)
+    lc_plot.set_title('G Band Light Curve', fontsize=6, y=0.93)
+
+    if save:
+        plt.savefig(f'{savefolder}/{sid}', transparent=False, facecolor='white')
+        plt.close()
+
+    
+
