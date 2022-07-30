@@ -41,10 +41,12 @@ Sample Light Curve Analysis
 --------
 The Lomb-Scargle Periodogram python notebook contains a short tutorial on the Astropy implementation of the Lomb-Scargle periodogram for finding periodicity in unevenly sampled data. Included is a sample analysis of a short-timescale variable star light curve from Gaia.
 
-The Ellipsoid Lightcurves python notebook is used to plot the Gaia light curves of stars that have crossed the SETI Ellipsoid during Gaia's observation period. In addition to the light curves in all three bands, the ellipsoid crossing time and its error are displayed as vertical lines.
+The Eclipsing Binary and RR Lyrae give examples of how to use the Lomb-Scargle periodogram to find periodicity in variables that are not necessarily sinusoidal in nature. The eclipsing binary notebook also shows how to fit a double Gaussian function to the folded data.
 
-**to add**
-- Other light curve analyses (such as double gaussian for eclipsing binary)
+
+Ellipsoid Lightcurves
+--------
+The Ellipsoid Lightcurves python notebook is used to plot the Gaia light curves of stars that have crossed the SETI Ellipsoid during Gaia's observation period. In addition to the light curves in all three bands, the ellipsoid crossing time and its error are displayed as vertical lines.
 
 
 SETI Ellipsoid Analysis
