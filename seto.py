@@ -4,6 +4,10 @@ from astropy import constants as const
 from astropy import units as u
 
 import numpy as np
+from scipy.stats import binned_statistic_2d
+
+import matplotlib.pyplot as plt
+
 
 
 def ringsNow(event, t0, d0_err, stars):
@@ -46,3 +50,57 @@ def ringsNow(event, t0, d0_err, stars):
     distRingMinus = ringMinus[distMaskMinus]
 
     return distRingPlus, distRingMinus
+
+
+def xtimes(event, stars):
+    d0 = event.distance.to('lyr')
+
+    separations = stars.separation(event)
+
+    xtime = d0.to('m')/const.c*(np.cos(separations)+np.sin(separations)-1)
+    within = stars.distance.to('lyr').value < d0.value*np.cos(separations)
+
+
+    # xtimes are the time since Earth observation the stars will cross the observing line
+    return stars[within], xtime[within]
+
+def plotXtimes(stars, xtime, t0, event, name, q=1):
+    maxTauE = np.sqrt(1+q**2) - 1 # if tauE is greater than this, there are no angle solutions
+    d0 = event.distance
+
+    H, xe, ye, bn = binned_statistic_2d(stars.ra.wrap_at(180*u.degree).radian, stars.dec.radian,
+                    values = xtime.to('yr').value + t0.decimalyear, 
+                    statistic='mean', bins=175) # mean binning for contours
+    
+    fig = plt.figure(figsize=(8,5), dpi=150)
+    ax = fig.add_subplot(111, projection="mollweide")
+
+
+    ax.scatter(stars.ra.wrap_at(180*u.degree).radian, stars.dec.radian,
+                c=(xtime.to('yr').value + t0.decimalyear), cmap=plt.cm.autumn, rasterized=True, s=1)
+
+
+    maxYear = np.floor(((maxTauE*d0.to('m')/const.c).to('yr')+t0).decimalyear)-2
+    contourLevels = np.linspace(Time.now().value.year, maxYear, 5).astype(int)
+    cs = plt.contour(xe[1:], ye[1:], H.T, colors='k', linewidths=1, levels=contourLevels) # binned contours
+    plt.clabel(cs, fontsize=8)
+
+
+
+    ax.set_xticklabels(['14h','16h','18h','20h','22h','0h','2h','4h','6h','8h','10h'])
+    ax.tick_params(axis='both', labelsize=6)
+    ax.grid(True)
+    ax.set_title(f'Gaia Stars - Seto Signalling Schematic for SN{name}', fontsize=10)
+    plt.show()
+
+
+def rings(event, t0, stars, start, end):
+    deltaStart, deltaEnd = start - t0, end - t0
+
+    # get the crossing times of all the stars
+    c1, xtime = xtimes(event, stars)
+
+    # get the stars with crossings times within the specified dates 
+    inRangeC = (xtime.to('yr').value > deltaStart.to('yr').value) & (xtime.to('yr').value < deltaEnd.to('yr').value)
+
+    return c1[inRangeC]
