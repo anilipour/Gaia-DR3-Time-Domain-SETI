@@ -10,6 +10,8 @@ import ellipsoid
 from astroquery.gaia import Gaia
 import matplotlib.pyplot as plt
 
+from scipy.optimize import curve_fit
+
 
 def retrieveLC(source_id):
     # Retrieves light curve of a single source id from Gaia
@@ -335,5 +337,185 @@ def comparePeriodPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, s
         plt.savefig(f'{savefolder}/{sid}', transparent=False, facecolor='white')
         plt.close()
 
-    
 
+def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, save=False, savefolder=None, ecl=True):
+    xtime = ellipsoid.xTime(star)[0]
+    
+    lc = lcDict[str(sid)]
+    lcTimes = Time(lc['time'].value + 2455197.5, format='jd')
+    lcFlux = lc['flux']
+    lcFerr = lc['flux_error']
+
+    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.median(lcFlux), 'flux_error' : lcFerr/np.median(lcFlux)})
+    
+    freqs = np.linspace(min_freq/u.d, max_freq/u.d, 10000)
+    power = LombScargle(lcTS.time, lcTS['flux'], lcTS['flux_error']).power(freqs)
+    best_freq = freqs[np.argmax(power)]
+
+
+    right_mask = lcTS.time.value > xtime
+    left_mask = lcTS.time.value <= xtime
+
+    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.median(lcFlux[right_mask]), 'flux_error' : lcFerr[right_mask]/np.median(lcFlux[right_mask])})
+    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.median(lcFlux[left_mask]), 'flux_error' : lcFerr[left_mask]/np.median(lcFlux[left_mask])})
+
+    power_right = LombScargle(lcTS_right.time, lcTS_right['flux'], lcTS_right['flux_error']).power(freqs)
+    power_left = LombScargle(lcTS_left.time, lcTS_left['flux'], lcTS_left['flux_error']).power(freqs)
+
+    best_freq_right = freqs[np.argmax(power_right)]
+    best_freq_left = freqs[np.argmax(power_left)]
+
+    # Get folded light curves
+    if ecl:
+        pLC, lcTS_folded = fitDoubleGaussian(lcTS, best_freq)
+        pRight, lcTS_folded_right = fitDoubleGaussian(lcTS_right, best_freq_right)
+        pLeft, lcTS_folded_left = fitDoubleGaussian(lcTS_left, best_freq_left)
+    else:
+        lcTS_folded = lcTS.fold(period=1./best_freq, normalize_phase=True, epoch_phase=0)
+        lcTS_folded_right = lcTS_right.fold(period=1./best_freq_right, normalize_phase=True, epoch_phase=0)
+        lcTS_folded_left = lcTS_left.fold(period=1./best_freq_left, normalize_phase=True, epoch_phase=0)
+
+
+    # Create subplots grid
+    grid = plt.GridSpec(4, 6, wspace=0.2, hspace=0.45)
+    fig = plt.figure(figsize=(6, 6.67), dpi=250)
+
+    full_LSP = fig.add_subplot(grid[0, 0:])
+    left_LSP = fig.add_subplot(grid[1, :3])
+    right_LSP = fig.add_subplot(grid[1, 3:], sharey=left_LSP)
+    lc_plot = fig.add_subplot(grid[2, 0:])
+    folded_lcPlot = fig.add_subplot(grid[3, 0:2])
+    left_FLP = fig.add_subplot(grid[3, 2:4], sharey=folded_lcPlot)
+    right_FLP = fig.add_subplot(grid[3, 4:6], sharey=folded_lcPlot)
+
+    ## Plot Periodograms
+    full_LSP.plot(freqs, power, lw=0.5, color='g', label='Full Periodogram')
+    left_LSP.plot(freqs, power_left, color='g', lw=0.5, label='Left Periodogram')
+    right_LSP.plot(freqs, power_right, color='g', lw=0.5, label='Right Periodogram')
+
+    # Add a dashed line at the peak frequency
+    full_LSP.vlines(best_freq.value, ymin=power[np.where(freqs==best_freq)[0][0]], ymax=1.2, lw=0.5, ls='--', label=f'Peak Freq: {best_freq.value:0.3f}'+' d$^{-1}$')
+    left_LSP.vlines(best_freq_left.value, ymin=power_left[np.where(freqs==best_freq_left)[0][0]], ymax=1.2, lw=0.5, ls='--', label=f'Peak Freq: {best_freq_left.value:0.3f}'+' d$^{-1}$')
+    right_LSP.vlines(best_freq_right.value, ymin=power_right[np.where(freqs==best_freq_right)[0][0]], ymax=1.2, lw=0.5, ls='--', label=f'Peak Freq: {best_freq_right.value:0.3f}'+' d$^{-1}$')
+
+    # Legend
+    full_LSP.legend(prop={'size': 4}, loc=0)
+    left_LSP.legend(prop={'size': 4}, loc=0)
+    right_LSP.legend(prop={'size': 4}, loc=0)
+
+    
+    ## Light Curve Plot
+
+    # Distance (and crossing time) error
+    derror = (((star_row['dist84'] - star_row['dist']) + (star_row['dist'] - star_row['dist16']))/2).to('lyr').value*365.25
+
+    # Plot crossing time and errors
+    lc_plot.axvline(xtime, 0, 1, color='green', lw=1)
+    lc_plot.axvline(xtime+derror, 0, 1, color='green', ls='dashed', lw=1)
+    lc_plot.axvline(xtime-derror, 0, 1, color='green', ls='dashed', lw=1)
+            
+    # Plot light curve
+    lc_plot.errorbar(lcTS.time.value, lcTS['flux'], yerr=lcTS['flux_error'], fmt='.', c='green', label='G', ms=1.5, elinewidth=1)
+    
+    # Plot folded light curves
+    folded_lcPlot.errorbar(lcTS_folded.time.value, lcTS_folded['flux'], yerr=lcTS_folded['flux_error'], fmt='.', c='green', label='Full Folded', ms=1.5, elinewidth=1)
+    left_FLP.errorbar(lcTS_folded_left.time.value, lcTS_folded_left['flux'], yerr=lcTS_folded_left['flux_error'], fmt='.', c='green', label='Left Folded', ms=1.5, elinewidth=1)
+    right_FLP.errorbar(lcTS_folded_right.time.value, lcTS_folded_right['flux'], yerr=lcTS_folded_right['flux_error'], fmt='.', c='green', label='Right Folded', ms=1.5, elinewidth=1)
+
+    # If eclipsing binary, plot double Gaussian fit
+    xs = np.linspace(-0.5, 0.5, 100)
+    folded_lcPlot.plot(xs, negDoubleGaussian(xs, pLC[0], pLC[1], pLC[2], pLC[3], pLC[4], pLC[5], pLC[6]), c='g')
+    left_FLP.plot(xs, negDoubleGaussian(xs, pLeft[0], pLeft[1], pLeft[2], pLeft[3], pLeft[4], pLeft[5], pLeft[6]), c='g')
+    right_FLP.plot(xs, negDoubleGaussian(xs, pRight[0], pRight[1], pRight[2], pRight[3], pRight[4], pRight[5], pRight[6]), c='g')
+
+
+
+    # Get medians before and after crossing time
+    leftMed, rightMed, leftMAD, rightMAD = getMedLC(str(sid), star, lcDict)/np.median(lcFlux)
+
+    # Plot medians
+    lc_plot.hlines(leftMed, xmin=min(lcTS.time.value), xmax=xtime, color='green', linewidth=0.5)
+    lc_plot.hlines([leftMed+3*leftMAD, leftMed-3*leftMAD], xmin=min(lcTS.time.value), xmax=xtime, color='green', linewidth=0.5, ls = 'dashed')
+    lc_plot.hlines(rightMed, xmin=xtime, xmax=max(lcTS.time.value), color='green', linewidth=0.5)
+    lc_plot.hlines([rightMed+3*rightMAD, rightMed-3*rightMAD], xmin=xtime, xmax=max(lcTS.time.value), color='green', linewidth=0.5, ls = 'dashed')
+
+    # Legends
+    folded_lcPlot.legend(prop={'size': 4}, loc=0)
+    left_FLP.legend(prop={'size': 4}, loc=0)
+    right_FLP.legend(prop={'size': 4}, loc=0)
+
+    ## Set labels
+
+    # Axis labels
+    full_LSP.set_xlabel('Frequency', fontsize=6)
+    full_LSP.set_ylabel('Power', fontsize=6)
+
+    left_LSP.set_xlabel('Frequency', fontsize=6)
+    left_LSP.set_ylabel('Power', fontsize=6)
+
+    right_LSP.set_xlabel('Frequency', fontsize=6)
+
+    lc_plot.set_xlabel('BJD', fontsize=6)
+    lc_plot.set_ylabel('Normalized Flux', fontsize=6)
+
+    folded_lcPlot.set_xlabel('Phase', fontsize=6)
+    folded_lcPlot.set_ylabel('Normalized Flux', fontsize=6)
+
+    left_FLP.set_xlabel('Phase', fontsize=6)
+
+    right_FLP.set_xlabel('Phase', fontsize=6)
+
+    full_LSP.xaxis.set_label_coords(0.5, -0.2)
+    left_LSP.xaxis.set_label_coords(0.5, -0.2)
+    right_LSP.xaxis.set_label_coords(0.5, -0.2)
+
+    full_LSP.tick_params(axis='both', which='major', labelsize=5, pad=2)
+    left_LSP.tick_params(axis='both', which='major', labelsize=5, pad=2)
+    right_LSP.tick_params(axis='x', which='major', labelsize=5, pad=2)
+    lc_plot.tick_params(axis='both', which='major', labelsize=5)
+    folded_lcPlot.tick_params(axis='both', which='major', labelsize=5)
+    left_FLP.tick_params(axis='both', which='major', labelsize=5)
+    right_FLP.tick_params(axis='both', which='major', labelsize=5)
+
+    right_LSP.get_yaxis().set_visible(False)
+    right_FLP.get_yaxis().set_visible(False)
+    left_FLP.get_yaxis().set_visible(False)
+
+    lc_plot.xaxis.get_offset_text().set_fontsize(5)
+
+    full_LSP.set_ylim((0,1.24))
+    left_LSP.set_ylim((0,1.24))
+
+    # Set titles
+    full_LSP.set_title(f'Source {sid} Lomb-Scargle Periodograms and Light Curve', fontsize=8)
+    lc_plot.set_title('G Band Light Curve', fontsize=6, y=0.95)
+
+    if save:
+        plt.savefig(f'{savefolder}/{sid}', transparent=False, facecolor='white')
+        plt.close()
+
+
+def negDoubleGaussian(x, mu1, sig1, d1, mu2, sig2, d2, b):
+    g1 = d1*np.exp(-np.power(x - mu1, 2.) / (2 * np.power(sig1, 2.)))
+    g2 = d2*np.exp(-np.power(x - mu2, 2.) / (2 * np.power(sig2, 2.)))
+    ndg = -g1 - g2 + b
+    return ndg
+
+def fitDoubleGaussian(lc, frequency, p0=None):
+    folded_LC = lc.fold(period=2./frequency, normalize_phase=True, epoch_time=lc['time'][np.where(lc['flux']==np.max(lc['flux']))[0][0]])
+    mean1, mean2 = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value, None
+    while mean2 == None:
+        checkLow = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value
+        if np.abs(checkLow - mean1) < 0.3:
+            folded_LC.remove_row(np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0])
+        else:
+            mean2 = checkLow
+    
+    folded_LC = lc.fold(period=2./frequency, normalize_phase=True, epoch_time=lc['time'][np.where(lc['flux']==np.max(lc['flux']))[0][0]])
+    depth1, depth2 = folded_LC['flux'][folded_LC['time'] == mean1].value.data[0], folded_LC['flux'][folded_LC['time'] == mean2].value.data[0]
+    
+    if p0==None:
+        p0 = np.array([mean1, 0.1, depth1, mean2, 0.1, depth2, np.max(folded_LC['flux'].value)])
+    # print(p0, folded_LC, lc)
+    p1, cov = curve_fit(negDoubleGaussian, folded_LC['time'].value, folded_LC['flux'].value, p0, maxfev=10000)
+    return p1, folded_LC
