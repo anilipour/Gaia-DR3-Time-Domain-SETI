@@ -41,12 +41,14 @@ Sample Light Curve Analysis
 --------
 The Lomb-Scargle Periodogram python notebook contains a short tutorial on the Astropy implementation of the Lomb-Scargle periodogram for finding periodicity in unevenly sampled data. Included is a sample analysis of a short-timescale variable star light curve from Gaia.
 
-The Eclipsing Binary and RR Lyrae give examples of how to use the Lomb-Scargle periodogram to find periodicity in variables that are not necessarily sinusoidal in nature. The eclipsing binary notebook also shows how to fit a double Gaussian function to the folded data.
+The Eclipsing Binary and RR Lyrae python notebooks give examples of how to use the Lomb-Scargle periodogram to find periodicity in variables that are not necessarily sinusoidal in nature. The eclipsing binary notebook also shows how to fit a double Gaussian function to the folded data.
 
 
-Ellipsoid Lightcurves
+Gaia Light Curve Analysis
 --------
-The Ellipsoid Lightcurves python notebook is used to plot the Gaia light curves of stars that have crossed the SETI Ellipsoid during Gaia's observation period. In addition to the light curves in all three bands, the ellipsoid crossing time and its error are displayed as vertical lines.
+The Ellipsoid Lightcurves python notebooks are used to plot the Gaia light curves of stars that have crossed the SETI Ellipsoid during Gaia's observation period. In addition to the light curves in all three bands, the ellipsoid crossing time and its error are displayed as vertical lines. Various parameters before and after crossing time are also compared, including variable periods, median fluxes, and the phase and amplitude of variability. 
+
+The SN Light XCorr python notebook contains a potentially interesting cross-correlation analysis between supernova light curves and Gaia stellar light curves, based on the possibility that an intelligent civilization may send signals copying bright astrophysical events they observe. Although the potential of this technique is tightly constrained by the sparsity of Gaia photometry data, it may be better applied to data from other telescopes or surveys, such as TESS. 
 
 
 SETI Ellipsoid Analysis

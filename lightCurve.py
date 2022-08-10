@@ -2,6 +2,7 @@ import numpy as np
 
 from astropy.time import Time
 from astropy.timeseries import LombScargle, TimeSeries
+from astropy.table import vstack
 import scipy.stats
 from astropy import units as u
 
@@ -32,6 +33,39 @@ def retrieveLC(source_id):
     product_tb = product.to_table()  # Export to Astropy Table object.
 
     return product_tb
+
+
+def chunks(lst, n):
+    ""
+    "Split an input list into multiple chunks of size =< n"
+    ""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+def retrieveLCs(source_ids):
+    # Retrieves light curve of a list of source ids
+    dl_threshold = 5000               # DataLink server threshold. It is not possible to download products for more than 5000 sources in one single call.
+    ids_chunks   = list(chunks(source_ids, dl_threshold))
+    datalink_all = []
+
+
+    retrieval_type = 'EPOCH_PHOTOMETRY'          # Options are: 'EPOCH_PHOTOMETRY', 'MCMC_GSPPHOT', 'MCMC_MSC', 'XP_SAMPLED', 'XP_CONTINUOUS', 'RVS', 'ALL'
+    data_structure = 'COMBINED'     # Options are: 'INDIVIDUAL', 'COMBINED', 'RAW'
+    data_release   = 'Gaia DR3'     # Options are: 'Gaia DR3' (default), 'Gaia DR2'
+    dl_key         = f'{retrieval_type}_{data_structure}.xml'
+
+
+    ii = 0
+    for chunk in ids_chunks:
+        ii = ii + 1
+        print(f'Downloading Chunk #{ii}; N_files = {len(chunk)}')
+        datalink  = Gaia.load_data(ids=chunk, data_release = data_release, retrieval_type=retrieval_type, format = 'votable', data_structure = data_structure)
+        datalink_all.append(datalink)
+
+    temp = [inp[dl_key][0].to_table() for inp in datalink_all]
+    mergedLC = vstack(temp)   
+
+    return mergedLC
     
 def getLC(lc_table, source_id, band):
     # Returns light curve for a specific band and source id from a light curve
@@ -42,6 +76,18 @@ def getLC(lc_table, source_id, band):
     band_lc = source_lc[band_mask]
 
     return band_lc
+
+def lcBandDict(lc_table):
+    glcDict = {}
+    bplcDict = {}
+    rplcDict = {}
+    source_ids = list(dict.fromkeys(lc_table['source_id']))
+    for source_id in source_ids:
+        glcDict[str(source_id)] = getLC(lc_table, source_id, 'G')
+        bplcDict[str(source_id)] = getLC(lc_table, source_id, 'BP')
+        rplcDict[str(source_id)] = getLC(lc_table, source_id, 'RP')
+
+    return glcDict, bplcDict, rplcDict
 
 def medLC(xtime, lc):
     leftY, rightY = [], []
@@ -338,7 +384,7 @@ def comparePeriodPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, s
         plt.close()
 
 
-def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, save=False, savefolder=None, ecl=True):
+def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, save=False, savefolder=None, ecl=True, print_param=True):
     xtime = ellipsoid.xTime(star)[0]
     
     lc = lcDict[str(sid)]
@@ -367,9 +413,11 @@ def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=1
 
     # Get folded light curves
     if ecl:
-        pLC, lcTS_folded = fitDoubleGaussian(lcTS, best_freq)
-        pRight, lcTS_folded_right = fitDoubleGaussian(lcTS_right, best_freq_right)
-        pLeft, lcTS_folded_left = fitDoubleGaussian(lcTS_left, best_freq_left)
+        # set epoch_time to the same for all folds to compare phase
+        epoch_time = lcTS_left['time'][np.where(lcTS_left['flux']==np.max(lcTS_left['flux']))[0][0]]
+        pLC, lcTS_folded = fitDoubleGaussian(lcTS, best_freq, epoch_time)
+        pRight, lcTS_folded_right = fitDoubleGaussian(lcTS_right, best_freq_right, epoch_time)
+        pLeft, lcTS_folded_left = fitDoubleGaussian(lcTS_left, best_freq_left, epoch_time)
     else:
         lcTS_folded = lcTS.fold(period=1./best_freq, normalize_phase=True, epoch_phase=0)
         lcTS_folded_right = lcTS_right.fold(period=1./best_freq_right, normalize_phase=True, epoch_phase=0)
@@ -418,15 +466,16 @@ def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=1
     lc_plot.errorbar(lcTS.time.value, lcTS['flux'], yerr=lcTS['flux_error'], fmt='.', c='green', label='G', ms=1.5, elinewidth=1)
     
     # Plot folded light curves
-    folded_lcPlot.errorbar(lcTS_folded.time.value, lcTS_folded['flux'], yerr=lcTS_folded['flux_error'], fmt='.', c='green', label='Full Folded', ms=1.5, elinewidth=1)
-    left_FLP.errorbar(lcTS_folded_left.time.value, lcTS_folded_left['flux'], yerr=lcTS_folded_left['flux_error'], fmt='.', c='green', label='Left Folded', ms=1.5, elinewidth=1)
-    right_FLP.errorbar(lcTS_folded_right.time.value, lcTS_folded_right['flux'], yerr=lcTS_folded_right['flux_error'], fmt='.', c='green', label='Right Folded', ms=1.5, elinewidth=1)
+    folded_lcPlot.errorbar(lcTS_folded.time.value, lcTS_folded['flux'], yerr=lcTS_folded['flux_error'], fmt='.', c='green', label='Full Folded', ms=2, elinewidth=1)
+    left_FLP.errorbar(lcTS_folded_left.time.value, lcTS_folded_left['flux'], yerr=lcTS_folded_left['flux_error'], fmt='.', c='green', label='Left Folded', ms=2, elinewidth=1)
+    right_FLP.errorbar(lcTS_folded_right.time.value, lcTS_folded_right['flux'], yerr=lcTS_folded_right['flux_error'], fmt='.', c='green', label='Right Folded', ms=2, elinewidth=1)
 
     # If eclipsing binary, plot double Gaussian fit
-    xs = np.linspace(-0.5, 0.5, 100)
-    folded_lcPlot.plot(xs, negDoubleGaussian(xs, pLC[0], pLC[1], pLC[2], pLC[3], pLC[4], pLC[5], pLC[6]), c='g')
-    left_FLP.plot(xs, negDoubleGaussian(xs, pLeft[0], pLeft[1], pLeft[2], pLeft[3], pLeft[4], pLeft[5], pLeft[6]), c='g')
-    right_FLP.plot(xs, negDoubleGaussian(xs, pRight[0], pRight[1], pRight[2], pRight[3], pRight[4], pRight[5], pRight[6]), c='g')
+    if ecl:
+        xs = np.linspace(-0.5, 0.5, 100)
+        folded_lcPlot.plot(xs, negDoubleGaussian(xs, pLC[0], pLC[1], pLC[2], pLC[3], pLC[4], pLC[5], pLC[6]), c='g')
+        left_FLP.plot(xs, negDoubleGaussian(xs, pLeft[0], pLeft[1], pLeft[2], pLeft[3], pLeft[4], pLeft[5], pLeft[6]), c='g')
+        right_FLP.plot(xs, negDoubleGaussian(xs, pRight[0], pRight[1], pRight[2], pRight[3], pRight[4], pRight[5], pRight[6]), c='g')
 
 
 
@@ -494,6 +543,28 @@ def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=1
         plt.savefig(f'{savefolder}/{sid}', transparent=False, facecolor='white')
         plt.close()
 
+    if print_param and ecl:
+        if pLeft[0] < pLeft[3]:
+            ld1, ld2 = pLeft[2], pLeft[5]
+            lp1, lp2 = pLeft[0], pLeft[3]
+        else:
+            ld1, ld2 = pLeft[5], pLeft[2]
+            lp1, lp2 = pLeft[3], pLeft[0]
+
+        if pRight[0] < pRight[3]:
+            rd1, rd2 = pRight[2], pRight[5]
+            rp1, rp2 = pRight[0], pRight[3]
+        else:
+            rd1, rd2 = pRight[5], pRight[2]
+            rp1, rp2 = pRight[3], pRight[0]
+        
+        print(f'Left Median: {leftMed:0.3f}, Right Median: {rightMed:0.3f}')
+        print(f'Left Freq: {best_freq_left.value:0.3f}, Right Freq: {best_freq_left.value:0.3f}')
+        print(f'Left Depth 1: {ld1:0.3f}, Right Depth 1: {rd1:0.3f}')
+        print(f'Left Depth 2: {ld2:0.3f}, Right Depth 2: {rd2:0.3f}')
+        print(f'Left Phase 1: {lp1:0.3f}, Right Phase 1: {rp1:0.3f}')
+        print(f'Left Phase 2: {lp2:0.3f}, Right Phase 2: {rp2:0.3f}')
+
 
 def negDoubleGaussian(x, mu1, sig1, d1, mu2, sig2, d2, b):
     g1 = d1*np.exp(-np.power(x - mu1, 2.) / (2 * np.power(sig1, 2.)))
@@ -501,8 +572,8 @@ def negDoubleGaussian(x, mu1, sig1, d1, mu2, sig2, d2, b):
     ndg = -g1 - g2 + b
     return ndg
 
-def fitDoubleGaussian(lc, frequency, p0=None):
-    folded_LC = lc.fold(period=2./frequency, normalize_phase=True, epoch_time=lc['time'][np.where(lc['flux']==np.max(lc['flux']))[0][0]])
+def fitDoubleGaussian(lc, frequency, epoch_time, p0=None):
+    folded_LC = lc.fold(period=2./frequency, normalize_phase=True, epoch_time=epoch_time)
     mean1, mean2 = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value, None
     while mean2 == None:
         checkLow = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value
@@ -511,7 +582,7 @@ def fitDoubleGaussian(lc, frequency, p0=None):
         else:
             mean2 = checkLow
     
-    folded_LC = lc.fold(period=2./frequency, normalize_phase=True, epoch_time=lc['time'][np.where(lc['flux']==np.max(lc['flux']))[0][0]])
+    folded_LC = lc.fold(period=2./frequency, normalize_phase=True, epoch_time=epoch_time)
     depth1, depth2 = folded_LC['flux'][folded_LC['time'] == mean1].value.data[0], folded_LC['flux'][folded_LC['time'] == mean2].value.data[0]
     
     if p0==None:
