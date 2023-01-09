@@ -7,6 +7,8 @@ import numpy as np
 from scipy.stats import binned_statistic_2d
 
 import matplotlib.pyplot as plt
+from astropy.table import hstack, Table
+
 
 
 
@@ -52,7 +54,7 @@ def ringsNow(event, t0, d0_err, stars):
     return distRingPlus, distRingMinus
 
 
-def xtimes(event, stars):
+def xtimes(event, stars, returnTable=False, star_table=None):
     d0 = event.distance.to('lyr')
 
     separations = stars.separation(event)
@@ -62,7 +64,10 @@ def xtimes(event, stars):
 
 
     # xtimes are the time since Earth observation the stars will cross the observing line
-    return stars[within], xtime[within]
+    if returnTable and star_table:
+        return stars[within], xtime[within], star_table[within]
+    else:
+        return stars[within], xtime[within]
 
 def plotXtimes(stars, xtime, t0, event, name, q=1):
     maxTauE = np.sqrt(1+q**2) - 1 # if tauE is greater than this, there are no angle solutions
@@ -94,13 +99,24 @@ def plotXtimes(stars, xtime, t0, event, name, q=1):
     plt.show()
 
 
-def rings(event, t0, stars, start, end):
+def rings(event, t0, stars, start, end, returnTable=False, star_table=None):
     deltaStart, deltaEnd = start - t0, end - t0
 
     # get the crossing times of all the stars
-    c1, xtime = xtimes(event, stars)
+    
+    if returnTable and star_table:
+        c1, xtime, starTable = xtimes(event, stars, returnTable=returnTable, star_table=star_table)
+    else:
+        c1, xtime = xtimes(event, stars, returnTable=returnTable, star_table=star_table)
+    
+    
 
     # get the stars with crossings times within the specified dates 
     inRangeC = (xtime.to('yr').value > deltaStart.to('yr').value) & (xtime.to('yr').value < deltaEnd.to('yr').value)
 
-    return c1[inRangeC]
+
+    if returnTable and star_table:
+        starTable = hstack([starTable, Table({'xtime' : xtime+t0})])
+        return c1[inRangeC], starTable[inRangeC]
+    else:
+        return c1[inRangeC]

@@ -139,7 +139,7 @@ def xTime(star, c0=None, t0=None):
     # Returns the ellipsoid crossing time of the SkyCoord object(s)
     # if c0 and t0 are None, the ellipsoid defaults to SN 1987A
 
-    if not c0 or not t0:
+    if c0==None or t0==None:
         # Properties of SN1987A
         t0 = Time({'year': 1987, 'month': 2, 'day': 23}, format='ymdhms')
 

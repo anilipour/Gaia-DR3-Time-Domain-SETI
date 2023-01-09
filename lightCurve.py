@@ -142,7 +142,7 @@ def compMedLC(sid, star, lcDict, y='flux', time=None):
  
 
 
-def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=True, normalize=True, time=None, cross=True):
+def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=True, normalize=True, time=None, cross=True, err=True):
     # Plots the light curves for a star in the G, BP, and RP bands
     # Needs the source id of the star, the SkyCoord object corresponding to the star,
     # the row of the table corresponding to the star,
@@ -200,9 +200,10 @@ def plotLC(sid, star, star_row, glcDict, bplcDict, rplcDict, y='flux', median=Tr
         ax[1].vlines(xtime, ymin=min((blcY-berr).value), ymax=max((blcY+berr).value), color='blue')
         ax[2].vlines(xtime, ymin=min((rlcY-rerr).value), ymax=max((rlcY+rerr).value), color='red')
         
-        ax[0].vlines([xtime+derror, xtime-derror],  ymin=min((glcY-gerr).value), ymax=max((glcY+gerr).value), color='green', ls='dashed')
-        ax[1].vlines([xtime+derror, xtime-derror],  ymin=min((blcY-berr).value), ymax=max((blcY+berr).value), color='blue', ls='dashed')
-        ax[2].vlines([xtime+derror, xtime-derror],  ymin=min((rlcY-rerr).value), ymax=max((rlcY+rerr).value), color='red', ls='dashed')
+        if err:
+            ax[0].vlines([xtime+derror, xtime-derror],  ymin=min((glcY-gerr).value), ymax=max((glcY+gerr).value), color='green', ls='dashed')
+            ax[1].vlines([xtime+derror, xtime-derror],  ymin=min((blcY-berr).value), ymax=max((blcY+berr).value), color='blue', ls='dashed')
+            ax[2].vlines([xtime+derror, xtime-derror],  ymin=min((rlcY-rerr).value), ymax=max((rlcY+rerr).value), color='red', ls='dashed')
 
 
 
@@ -249,7 +250,7 @@ def comparePeriod(lc, xtime, min_freq=1, max_freq=10):
     lcFlux = lc['flux']
     lcFerr = lc['flux_error']
 
-    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.median(lcFlux), 'flux_error' : lcFerr/np.median(lcFlux)})
+    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.nanmedian(lcFlux), 'flux_error' : lcFerr/np.nanmedian(lcFlux)})
     
     freqs = np.linspace(min_freq/u.d, max_freq/u.d, 10000)
     power = LombScargle(lcTS.time, lcTS['flux'], lcTS['flux_error']).power(freqs)
@@ -259,8 +260,8 @@ def comparePeriod(lc, xtime, min_freq=1, max_freq=10):
     right_mask = lcTS.time.value > xtime
     left_mask = lcTS.time.value <= xtime
 
-    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.median(lcFlux[right_mask]), 'flux_error' : lcFerr[right_mask]/np.median(lcFlux[right_mask])})
-    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.median(lcFlux[left_mask]), 'flux_error' : lcFerr[left_mask]/np.median(lcFlux[left_mask])})
+    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.nanmedian(lcFlux[right_mask]), 'flux_error' : lcFerr[right_mask]/np.nanmedian(lcFlux[right_mask])})
+    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.nanmedian(lcFlux[left_mask]), 'flux_error' : lcFerr[left_mask]/np.nanmedian(lcFlux[left_mask])})
 
     power_right = LombScargle(lcTS_right.time, lcTS_right['flux'], lcTS_right['flux_error']).power(freqs)
     power_left = LombScargle(lcTS_left.time, lcTS_left['flux'], lcTS_left['flux_error']).power(freqs)
@@ -270,15 +271,18 @@ def comparePeriod(lc, xtime, min_freq=1, max_freq=10):
 
     return best_freq, best_freq_right, best_freq_left
 
-def comparePeriodPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, save=False, savefolder=None):
-    xtime = ellipsoid.xTime(star)[0]
+def comparePeriodPlot(lcDict, sid, star_row, star, time=None, min_freq=0.05, max_freq=10, save=False, savefolder=None):
+    if time==None:
+        xtime = ellipsoid.xTime(star)[0]
+    else:
+        xtime=time
     
     lc = lcDict[str(sid)]
     lcTimes = Time(lc['time'].value + 2455197.5, format='jd')
     lcFlux = lc['flux']
     lcFerr = lc['flux_error']
 
-    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.median(lcFlux), 'flux_error' : lcFerr/np.median(lcFlux)})
+    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.nanmedian(lcFlux), 'flux_error' : lcFerr/np.nanmedian(lcFlux)})
     
     freqs = np.linspace(min_freq/u.d, max_freq/u.d, 20000)
     power = LombScargle(lcTS.time, lcTS['flux'], lcTS['flux_error']).power(freqs)
@@ -288,8 +292,8 @@ def comparePeriodPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, s
     right_mask = lcTS.time.value > xtime
     left_mask = lcTS.time.value <= xtime
 
-    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.median(lcFlux[right_mask]), 'flux_error' : lcFerr[right_mask]/np.median(lcFlux[right_mask])})
-    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.median(lcFlux[left_mask]), 'flux_error' : lcFerr[left_mask]/np.median(lcFlux[left_mask])})
+    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.nanmedian(lcFlux), 'flux_error' : lcFerr[right_mask]/np.nanmedian(lcFlux[right_mask])})
+    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.nanmedian(lcFlux), 'flux_error' : lcFerr[left_mask]/np.nanmedian(lcFlux[left_mask])})
 
     power_right = LombScargle(lcTS_right.time, lcTS_right['flux'], lcTS_right['flux_error']).power(freqs)
     power_left = LombScargle(lcTS_left.time, lcTS_left['flux'], lcTS_left['flux_error']).power(freqs)
@@ -337,7 +341,7 @@ def comparePeriodPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, s
     lc_plot.errorbar(lcTS.time.value, lcTS['flux'], yerr=lcTS['flux_error'], fmt='.', c='green', label='G', ms=3, elinewidth=1)
     
     # Get medians before and after crossing time
-    leftMed, rightMed, leftMAD, rightMAD = getMedLC(str(sid), star, lcDict)/np.median(lcFlux)
+    leftMed, rightMed, leftMAD, rightMAD = getMedLC(str(sid), star, lcDict)/np.nanmedian(lcFlux)
 
     # Plot medians
     lc_plot.hlines(leftMed, xmin=min(lcTS.time.value), xmax=xtime, color='green', linewidth=0.5)
@@ -384,40 +388,55 @@ def comparePeriodPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, s
         plt.close()
 
 
-def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=10, save=False, savefolder=None, ecl=True, print_param=True):
-    xtime = ellipsoid.xTime(star)[0]
+def comparePeriodFoldPlot(lcDict, sid, star_row, star, time=None, min_freq=0.05, max_freq=10, save=False, savefolder=None, ecl=True, print_param=True, err=True):
+    if time==None:
+        xtime = ellipsoid.xTime(star)[0]
+    else:
+        xtime=time
     
     lc = lcDict[str(sid)]
     lcTimes = Time(lc['time'].value + 2455197.5, format='jd')
     lcFlux = lc['flux']
     lcFerr = lc['flux_error']
 
-    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.median(lcFlux), 'flux_error' : lcFerr/np.median(lcFlux)})
+    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.nanmedian(lcFlux), 'flux_error' : lcFerr/np.nanmedian(lcFlux)})
     
-    freqs = np.linspace(min_freq/u.d, max_freq/u.d, 10000)
-    power = LombScargle(lcTS.time, lcTS['flux'], lcTS['flux_error']).power(freqs)
+    freqs = np.linspace(min_freq/u.d, max_freq/u.d, 250000)
+    power = LombScargle(lcTS.time, lcTS['flux'], lcTS['flux_error']).power(freqs, method='cython')
     best_freq = freqs[np.argmax(power)]
 
 
     right_mask = lcTS.time.value > xtime
     left_mask = lcTS.time.value <= xtime
 
-    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.median(lcFlux[right_mask]), 'flux_error' : lcFerr[right_mask]/np.median(lcFlux[right_mask])})
-    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.median(lcFlux[left_mask]), 'flux_error' : lcFerr[left_mask]/np.median(lcFlux[left_mask])})
+    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.nanmedian(lcFlux), 'flux_error' : lcFerr[right_mask]/np.nanmedian(lcFlux)})
+    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.nanmedian(lcFlux), 'flux_error' : lcFerr[left_mask]/np.nanmedian(lcFlux)})
 
-    power_right = LombScargle(lcTS_right.time, lcTS_right['flux'], lcTS_right['flux_error']).power(freqs)
-    power_left = LombScargle(lcTS_left.time, lcTS_left['flux'], lcTS_left['flux_error']).power(freqs)
+    lsRight = LombScargle(lcTS_right.time, lcTS_right['flux'], lcTS_right['flux_error'])
+    lsLeft = LombScargle(lcTS_left.time, lcTS_left['flux'], lcTS_left['flux_error'])
+
+    power_right = lsRight.power(freqs, method='cython')
+    power_left = lsLeft.power(freqs, method='cython')
 
     best_freq_right = freqs[np.argmax(power_right)]
     best_freq_left = freqs[np.argmax(power_left)]
+
+    rightFalse = lsRight.false_alarm_probability(power_right.max())
+    leftFalse = lsLeft.false_alarm_probability(power_left.max())
+
+    if rightFalse > leftFalse:
+        best_freq2 = best_freq_left
+    else:
+        best_freq2 = best_freq_right
+
 
     # Get folded light curves
     if ecl:
         # set epoch_time to the same for all folds to compare phase
         epoch_time = lcTS_left['time'][np.where(lcTS_left['flux']==np.max(lcTS_left['flux']))[0][0]]
-        pLC, lcTS_folded = fitDoubleGaussian(lcTS, best_freq, epoch_time)
-        pRight, lcTS_folded_right = fitDoubleGaussian(lcTS_right, best_freq_right, epoch_time)
-        pLeft, lcTS_folded_left = fitDoubleGaussian(lcTS_left, best_freq_left, epoch_time)
+        pLC, lcTS_folded, covLC = fitDoubleGaussian(lcTS, best_freq2, epoch_time)
+        pRight, lcTS_folded_right, covRight = fitDoubleGaussian(lcTS_right, best_freq2, epoch_time)
+        pLeft, lcTS_folded_left, covLeft = fitDoubleGaussian(lcTS_left, best_freq2, epoch_time)
     else:
         lcTS_folded = lcTS.fold(period=1./best_freq, normalize_phase=True, epoch_phase=0)
         lcTS_folded_right = lcTS_right.fold(period=1./best_freq_right, normalize_phase=True, epoch_phase=0)
@@ -455,13 +474,15 @@ def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=1
     ## Light Curve Plot
 
     # Distance (and crossing time) error
-    derror = (((star_row['dist84'] - star_row['dist']) + (star_row['dist'] - star_row['dist16']))/2).to('lyr').value*365.25
+    if err:
+        derror = (((star_row['dist84'] - star_row['dist']) + (star_row['dist'] - star_row['dist16']))/2).to('lyr').value*365.25
 
     # Plot crossing time and errors
     lc_plot.axvline(xtime, 0, 1, color='green', lw=1)
-    lc_plot.axvline(xtime+derror, 0, 1, color='green', ls='dashed', lw=1)
-    lc_plot.axvline(xtime-derror, 0, 1, color='green', ls='dashed', lw=1)
-            
+    if err:
+        lc_plot.axvline(xtime+derror, 0, 1, color='green', ls='dashed', lw=1)
+        lc_plot.axvline(xtime-derror, 0, 1, color='green', ls='dashed', lw=1)
+                
     # Plot light curve
     lc_plot.errorbar(lcTS.time.value, lcTS['flux'], yerr=lcTS['flux_error'], fmt='.', c='green', label='G', ms=1.5, elinewidth=1)
     
@@ -477,10 +498,10 @@ def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=1
         left_FLP.plot(xs, negDoubleGaussian(xs, pLeft[0], pLeft[1], pLeft[2], pLeft[3], pLeft[4], pLeft[5], pLeft[6]), c='g')
         right_FLP.plot(xs, negDoubleGaussian(xs, pRight[0], pRight[1], pRight[2], pRight[3], pRight[4], pRight[5], pRight[6]), c='g')
 
-
+    
 
     # Get medians before and after crossing time
-    leftMed, rightMed, leftMAD, rightMAD = getMedLC(str(sid), star, lcDict)/np.median(lcFlux)
+    leftMed, rightMed, leftMAD, rightMAD = getMedLC(str(sid), star, lcDict, time=xtime)/np.nanmedian(lcFlux)
 
     # Plot medians
     lc_plot.hlines(leftMed, xmin=min(lcTS.time.value), xmax=xtime, color='green', linewidth=0.5)
@@ -544,26 +565,90 @@ def comparePeriodFoldPlot(lcDict, sid, star_row, star, min_freq=0.05, max_freq=1
         plt.close()
 
     if print_param and ecl:
-        if pLeft[0] < pLeft[3]:
-            ld1, ld2 = pLeft[2], pLeft[5]
-            lp1, lp2 = pLeft[0], pLeft[3]
-        else:
-            ld1, ld2 = pLeft[5], pLeft[2]
-            lp1, lp2 = pLeft[3], pLeft[0]
+        ld1, ld2 = pLeft[2], pLeft[5]
+        lp1, lp2 = pLeft[0], pLeft[3]
 
-        if pRight[0] < pRight[3]:
-            rd1, rd2 = pRight[2], pRight[5]
-            rp1, rp2 = pRight[0], pRight[3]
-        else:
-            rd1, rd2 = pRight[5], pRight[2]
-            rp1, rp2 = pRight[3], pRight[0]
+        rd1, rd2 = pRight[2], pRight[5]
+        rp1, rp2 = pRight[0], pRight[3]
+
         
         print(f'Left Median: {leftMed:0.3f}, Right Median: {rightMed:0.3f}')
-        print(f'Left Freq: {best_freq_left.value:0.3f}, Right Freq: {best_freq_left.value:0.3f}')
+        print(f'Left Freq: {best_freq_left.value:0.3f}, Right Freq: {best_freq_right.value:0.3f}')
         print(f'Left Depth 1: {ld1:0.3f}, Right Depth 1: {rd1:0.3f}')
         print(f'Left Depth 2: {ld2:0.3f}, Right Depth 2: {rd2:0.3f}')
         print(f'Left Phase 1: {lp1:0.3f}, Right Phase 1: {rp1:0.3f}')
         print(f'Left Phase 2: {lp2:0.3f}, Right Phase 2: {rp2:0.3f}')
+
+
+def eclParameters(lcDict, sid, star, time=None, min_freq=0.05, max_freq=10):
+    if time==None:
+        xtime = ellipsoid.xTime(star)[0]
+    else:
+        xtime=time
+    
+    lc = lcDict[str(sid)]
+    lcTimes = Time(lc['time'].value + 2455197.5, format='jd')
+    lcFlux = lc['flux']
+    lcFerr = lc['flux_error']
+
+    freqs = np.linspace(min_freq/u.d, max_freq/u.d, 250000)
+    lcTS = TimeSeries(time = lcTimes, data={'flux' : lcFlux/np.nanmedian(lcFlux), 'flux_error' : lcFerr/np.nanmedian(lcFlux)})
+
+
+    right_mask = lcTS.time.value > xtime
+    left_mask = lcTS.time.value <= xtime
+
+    lcTS_right = TimeSeries(time = lcTimes[right_mask], data={'flux' : lcFlux[right_mask]/np.nanmedian(lcFlux), 'flux_error' : lcFerr[right_mask]/np.nanmedian(lcFlux)})
+    lcTS_left = TimeSeries(time = lcTimes[left_mask], data={'flux' : lcFlux[left_mask]/np.nanmedian(lcFlux), 'flux_error' : lcFerr[left_mask]/np.nanmedian(lcFlux)})
+
+    lsRight = LombScargle(lcTS_right.time, lcTS_right['flux'], lcTS_right['flux_error'])
+    lsLeft = LombScargle(lcTS_left.time, lcTS_left['flux'], lcTS_left['flux_error'])
+
+    power_right = lsRight.power(freqs, method='cython')
+    power_left = lsLeft.power(freqs, method='cython')
+
+    best_freq_right = freqs[np.argmax(power_right)]
+    best_freq_left = freqs[np.argmax(power_left)]
+
+    rightFalse = lsRight.false_alarm_probability(power_right.max())
+    leftFalse = lsLeft.false_alarm_probability(power_left.max())    
+
+    if rightFalse > leftFalse:
+        best_freq = best_freq_left
+    else:
+        best_freq = best_freq_right
+
+    # Get folded light curves
+ 
+    # set epoch_time to the same for all folds to compare phase
+    epoch_time = lcTS_left['time'][np.where(lcTS_left['flux']==np.max(lcTS_left['flux']))[0][0]]
+    pRight, lcTS_folded_right, covRight = fitDoubleGaussian(lcTS_right, best_freq, epoch_time)
+    pLeft, lcTS_folded_left, covLeft = fitDoubleGaussian(lcTS_left, best_freq, epoch_time)
+
+    sigmaRight = np.sqrt(np.diag(covRight))
+    sigmaLeft = np.sqrt(np.diag(covLeft))
+
+    for i in range(len(sigmaRight)):
+        if np.isinf(sigmaRight[i]):
+            sigmaRight[i] = 1
+
+    for i in range(len(sigmaLeft)):
+        if np.isinf(sigmaLeft[i]):
+            sigmaLeft[i] = 1
+
+
+    leftMed, rightMed, leftMAD, rightMAD = getMedLC(str(sid), star, lcDict, time=xtime)/np.nanmedian(lcFlux)
+
+    pRight = np.append(pRight, [rightMed, best_freq_right.value])
+    pLeft = np.append(pLeft, [leftMed, best_freq_left.value])
+    sigmaRight = np.append(sigmaRight, [rightMAD, rightFalse.value])
+    sigmaLeft = np.append(sigmaLeft, [leftMAD, leftFalse.value])
+
+
+
+
+
+    return pRight, pLeft, sigmaRight, sigmaLeft
 
 
 def negDoubleGaussian(x, mu1, sig1, d1, mu2, sig2, d2, b):
@@ -574,19 +659,28 @@ def negDoubleGaussian(x, mu1, sig1, d1, mu2, sig2, d2, b):
 
 def fitDoubleGaussian(lc, frequency, epoch_time, p0=None):
     folded_LC = lc.fold(period=2./frequency, normalize_phase=True, epoch_time=epoch_time)
-    mean1, mean2 = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value, None
-    while mean2 == None:
-        checkLow = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value
-        if np.abs(checkLow - mean1) < 0.3:
-            folded_LC.remove_row(np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0])
-        else:
-            mean2 = checkLow
+    if folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value < 0:
+        mean1, mean2 = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value, None
+        while mean2 == None:
+            checkLow = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value
+            if np.abs(checkLow - mean1) < 0.3:
+                folded_LC.remove_row(np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0])
+            else:
+                mean2 = checkLow
+    else:
+        mean2, mean1 = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value, None
+        while mean1 == None:
+            checkLow = folded_LC['time'][np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0]].value
+            if np.abs(checkLow - mean2) < 0.3:
+                folded_LC.remove_row(np.where(folded_LC['flux']==np.min(folded_LC['flux']))[0][0])
+            else:
+                mean1 = checkLow
     
     folded_LC = lc.fold(period=2./frequency, normalize_phase=True, epoch_time=epoch_time)
     depth1, depth2 = folded_LC['flux'][folded_LC['time'] == mean1].value.data[0], folded_LC['flux'][folded_LC['time'] == mean2].value.data[0]
     
     if p0==None:
-        p0 = np.array([mean1, 0.1, depth1, mean2, 0.1, depth2, np.max(folded_LC['flux'].value)])
-    # print(p0, folded_LC, lc)
-    p1, cov = curve_fit(negDoubleGaussian, folded_LC['time'].value, folded_LC['flux'].value, p0, maxfev=10000)
-    return p1, folded_LC
+        p0 = np.array([mean1, 0.13, depth1, mean2, 0.13, depth2, np.max(folded_LC['flux'].value)])
+    p1, cov = curve_fit(negDoubleGaussian, folded_LC['time'].value, folded_LC['flux'].value, p0, maxfev=10000000)
+    
+    return p1, folded_LC, cov
