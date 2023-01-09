@@ -1,6 +1,6 @@
-# Exploring the SETI Ellipsoid with Gaia DR3
+# Signal Synchronization Strategies and Time Domain SETI with Gaia DR3
 
-This work builds off the SETI Ellipsoid analysis done by Davenport et al. (2022).
+This is the GitHub repository for Nilipour et al. (2023).
 
 Retrieving Data
 -------
@@ -70,5 +70,6 @@ Citations
 ---------
 1. [Davenport, James R. A. et al. "Searching the SETI Ellipsoid with Gaia." (2022).](https://arxiv.org/abs/2206.04092)
 2. [Eyer, L. et al. "Gaia Data Release 3. Summary of the variability processing and analysis." (2022).](https://arxiv.org/abs/2206.06416)
+3. [Seto, Naoki. "Search for Galactic Civilizations Using Historical Supernovae." (2021)](https://iopscience.iop.org/article/10.3847/1538-4357/ac0c7b)
 
 
