@@ -50,10 +50,17 @@ The Ellipsoid Lightcurves python notebooks are used to plot the Gaia light curve
 
 The SN Light XCorr python notebook contains a potentially interesting cross-correlation analysis between supernova light curves and Gaia stellar light curves, based on the possibility that an intelligent civilization may send signals copying bright astrophysical events they observe. Although the potential of this technique is tightly constrained by the sparsity of Gaia photometry data, it may be better applied to data from other telescopes or surveys, such as TESS. 
 
+The primary focus of Nilipour et al. (2023) is a novel variability analysis that searches for changes in the parameter of stellar light curves at the SETI Ellipsoid or Seto crossing times. This analysis is contained in the Lightcurves Parameter Comparison notebook, which goes through the full steps of the analysis, from calculating all candidate targets using both methods to demonstrating the ranking system used to determine the most interesting light curves.
+
 
 SETI Ellipsoid Analysis
 --------
 The SN1987A Ellipsoid python notebooks plot the SETI Ellipsoid, using SN 1987A as the conspicuous event, for subsets of the Gaia data that are retrieved as described above. The notebooks also contain various analyses performed on the stars that are in or on, or those that have recently crossed, the ellipsoid.
+
+
+Other Python Files
+--------
+The rest of the ```.py``` files include various functions that are used extensively in the notebooks, from calculating crossing times to plotting light curves. 
 
 
 Dependencies

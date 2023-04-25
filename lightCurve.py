@@ -651,6 +651,74 @@ def eclParameters(lcDict, sid, star, time=None, min_freq=0.05, max_freq=10):
     return pRight, pLeft, sigmaRight, sigmaLeft
 
 
+def allParameters(lcDict, sid, star, time=None):
+    if time==None:
+        xtime = ellipsoid.xTime(star)[0]
+    else:
+        xtime=time
+    
+    lc = lcDict[str(sid)]
+    lcTimes = lc['time'].value + 2455197.5
+    lcFlux = lc['flux']
+    lcFerr = lc['flux_error']
+
+    
+    right_mask = lcTimes > xtime
+    left_mask = lcTimes <= xtime
+
+    lcTimesRight = lcTimes[right_mask]
+    lcFluxRight = lcFlux[right_mask]
+    lcFerrRight = lcFerr[right_mask]
+    
+    lcTimesLeft = lcTimes[left_mask]
+    lcFluxLeft = lcFlux[left_mask]
+    lcFerrLet = lcFerr[left_mask]
+
+ 
+    # set epoch_time to the same for all folds to compare phase
+    pRight, covRight = fitLinear(lcTimesRight, lcFluxRight)
+    pLeft, covLeft = fitLinear(lcTimesLeft, lcFluxLeft)
+    
+    # get only slope
+    pRight = [pRight[0]]
+    pLeft = [pLeft[0]]
+
+    sigmaRight = np.sqrt(np.diag(covRight))
+    sigmaLeft = np.sqrt(np.diag(covLeft))
+    
+    sigmaRight = [sigmaRight[0]]
+    sigmaLeft = [sigmaLeft[0]]
+
+    for i in range(len(sigmaRight)):
+        if np.isinf(sigmaRight[i]):
+            sigmaRight[i] = 1
+
+    for i in range(len(sigmaLeft)):
+        if np.isinf(sigmaLeft[i]):
+            sigmaLeft[i] = 1
+
+
+    leftMed, rightMed, leftMAD, rightMAD = getMedLC(str(sid), star, lcDict, time=xtime)/np.nanmedian(lcFlux)
+    
+    leftSD, rightSD = np.std(lcFluxLeft/np.nanmean(lcFluxLeft)), np.std(lcFluxRight/np.nanmean(lcFluxRight))
+
+    pRight = np.append(pRight, [rightMed, rightSD])
+    pLeft = np.append(pLeft, [leftMed, leftSD])
+    sigmaRight = np.append(sigmaRight[0], [rightMAD, 1/np.sqrt(2)])
+    sigmaLeft = np.append(sigmaLeft[0], [leftMAD, 1/np.sqrt(2)])
+    
+
+
+    return pRight, pLeft, sigmaRight, sigmaLeft
+
+def linear(x, slope, intercept):
+    return slope*x + intercept
+
+def fitLinear(lcTimes, lcFluxes):
+    p1, cov = curve_fit(linear, lcTimes, lcFluxes, maxfev=100000000)
+    
+    return p1, cov
+
 def negDoubleGaussian(x, mu1, sig1, d1, mu2, sig2, d2, b):
     g1 = d1*np.exp(-np.power(x - mu1, 2.) / (2 * np.power(sig1, 2.)))
     g2 = d2*np.exp(-np.power(x - mu2, 2.) / (2 * np.power(sig2, 2.)))
