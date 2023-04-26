@@ -50,7 +50,7 @@ The Ellipsoid Lightcurves python notebooks are used to plot the Gaia light curve
 
 The SN Light XCorr python notebook contains a potentially interesting cross-correlation analysis between supernova light curves and Gaia stellar light curves, based on the possibility that an intelligent civilization may send signals copying bright astrophysical events they observe. Although the potential of this technique is tightly constrained by the sparsity of Gaia photometry data, it may be better applied to data from other telescopes or surveys, such as TESS. 
 
-The primary focus of Nilipour et al. (2023) is a novel variability analysis that searches for changes in the parameter of stellar light curves at the SETI Ellipsoid or Seto crossing times. This analysis is contained in the Lightcurves Parameter Comparison notebook, which goes through the full steps of the analysis, from calculating all candidate targets using both methods to demonstrating the ranking system used to determine the most interesting light curves.
+The primary focus of Nilipour et al. (2023) is a novel variability analysis that searches for changes in the parameter of stellar light curves at the SETI Ellipsoid or Seto crossing times. This analysis is contained in the Lightcurves Parameter Comparison notebook, which goes through the full steps of the analysis, from calculating all candidate targets using both methods (which are then saved to the ```stars.csv``` file) to demonstrating the ranking system used to determine the most interesting light curves.
 
 
 SETI Ellipsoid Analysis
@@ -62,7 +62,7 @@ Seto Method
 ---------
 The Seto notebook implements the search framework proposed by [Seto (2021)](https://iopscience.iop.org/article/10.3847/1538-4357/ac0c7b) with Gaia DR3. The method is explained in the Seto (2021) paper, as well as in Nilipour et al. (2023). An animation is also provided here.
 
-![](https://github.com/anilipour/Gaia-DR3-Time-Domain-SETI/blob/main/Figures/setoAnimation.mp4)
+![](https://github.com/anilipour/Gaia-DR3-Time-Domain-SETI/blob/main/Figures/setoAnimation.gif)
 
 
 Other Python Files
