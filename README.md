@@ -62,7 +62,7 @@ Seto Method
 ---------
 The Seto notebook implements the search framework proposed by [Seto (2021)](https://iopscience.iop.org/article/10.3847/1538-4357/ac0c7b) with Gaia DR3. The method is explained in the Seto (2021) paper, as well as in Nilipour et al. (2023). An animation is also provided here.
 
-![](https://github.com/anilipour/Gaia-DR3-Time-Domain-SETI/blob/main/Figures/setoTestFinal.gif)
+![](https://github.com/anilipour/Gaia-DR3-Time-Domain-SETI/blob/main/Figures/setoAnimation.mp4)
 
 
 Other Python Files
