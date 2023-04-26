@@ -87,3 +87,4 @@ Citations
 3. [Seto, Naoki. "Search for Galactic Civilizations Using Historical Supernovae." (2021)](https://iopscience.iop.org/article/10.3847/1538-4357/ac0c7b)
 
 
+[![DOI](https://zenodo.org/badge/503060847.svg)](https://zenodo.org/badge/latestdoi/503060847)
