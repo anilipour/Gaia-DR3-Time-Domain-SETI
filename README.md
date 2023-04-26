@@ -58,6 +58,13 @@ SETI Ellipsoid Analysis
 The SN1987A Ellipsoid python notebooks plot the SETI Ellipsoid, using SN 1987A as the conspicuous event, for subsets of the Gaia data that are retrieved as described above. The notebooks also contain various analyses performed on the stars that are in or on, or those that have recently crossed, the ellipsoid.
 
 
+Seto Method
+---------
+The Seto notebook implements the search framework proposed by [Seto (2021)](https://iopscience.iop.org/article/10.3847/1538-4357/ac0c7b) with Gaia DR3. The method is explained in the Seto (2021) paper, as well as in Nilipour et al. (2023). An animation is also provided here.
+
+![](https://github.com/anilipour/Gaia-DR3-Time-Domain-SETI/Figures/setoTestFinal.gif)
+
+
 Other Python Files
 --------
 The rest of the ```.py``` files include various functions that are used extensively in the notebooks, from calculating crossing times to plotting light curves. 
