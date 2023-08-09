@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/503060847.svg)](https://zenodo.org/badge/latestdoi/503060847)
 
-This is the GitHub repository for Nilipour et al. (2023).
+This is the GitHub repository for [Nilipour et al. (2023)](https://ui.adsabs.harvard.edu/abs/2023AJ....166...79N/abstract).
 
 Retrieving Data
 -------
@@ -52,7 +52,7 @@ The Ellipsoid Lightcurves python notebooks are used to plot the Gaia light curve
 
 The SN Light XCorr python notebook contains a potentially interesting cross-correlation analysis between supernova light curves and Gaia stellar light curves, based on the possibility that an intelligent civilization may send signals copying bright astrophysical events they observe. Although the potential of this technique is tightly constrained by the sparsity of Gaia photometry data, it may be better applied to data from other telescopes or surveys, such as TESS. 
 
-The primary focus of Nilipour et al. (2023) is a novel variability analysis that searches for changes in the parameter of stellar light curves at the SETI Ellipsoid or Seto crossing times. This analysis is contained in the Lightcurves Parameter Comparison notebook, which goes through the full steps of the analysis, from calculating all candidate targets using both methods (which are then saved to the ```stars.csv``` file) to demonstrating the ranking system used to determine the most interesting light curves.
+The primary focus of [Nilipour et al. (2023)](https://ui.adsabs.harvard.edu/abs/2023AJ....166...79N/abstract) is a novel variability analysis that searches for changes in the parameter of stellar light curves at the SETI Ellipsoid or Seto crossing times. This analysis is contained in the Lightcurves Parameter Comparison notebook, which goes through the full steps of the analysis, from calculating all candidate targets using both methods (which are then saved to the ```stars.csv``` file) to demonstrating the ranking system used to determine the most interesting light curves.
 
 
 SETI Ellipsoid Analysis
@@ -62,7 +62,7 @@ The SN1987A Ellipsoid python notebooks plot the SETI Ellipsoid, using SN 1987A a
 
 Seto Method
 ---------
-The Seto notebook implements the search framework proposed by [Seto (2021)](https://iopscience.iop.org/article/10.3847/1538-4357/ac0c7b) with Gaia DR3. The method is explained in the Seto (2021) paper, as well as in Nilipour et al. (2023). An animation is also provided here.
+The Seto notebook implements the search framework proposed by [Seto (2021)](https://ui.adsabs.harvard.edu/abs/2021ApJ...917...96S/abstract) with Gaia DR3. The method is explained in the Seto paper, as well as in [Nilipour et al. (2023)](https://ui.adsabs.harvard.edu/abs/2023AJ....166...79N/abstract). An animation is also provided here.
 
 ![](https://github.com/anilipour/Gaia-DR3-Time-Domain-SETI/blob/main/Figures/setoAnimation.gif)
 
@@ -84,7 +84,7 @@ Dependencies
 
 Citations
 ---------
-1. [Davenport, James R. A. et al. "Searching the SETI Ellipsoid with Gaia." (2022).](https://arxiv.org/abs/2206.04092)
-2. [Eyer, L. et al. "Gaia Data Release 3. Summary of the variability processing and analysis." (2022).](https://arxiv.org/abs/2206.06416)
-3. [Seto, Naoki. "Search for Galactic Civilizations Using Historical Supernovae." (2021)](https://iopscience.iop.org/article/10.3847/1538-4357/ac0c7b)
-
+1. [Nilipour, A., et al. "Signal Synchronization Strategies and Time Domain SETI with Gaia DR3"](https://ui.adsabs.harvard.edu/abs/2023AJ....166...79N/abstract)
+2. [Davenport, J. R. A., et al. "Searching the SETI Ellipsoid with Gaia." (2022).](https://ui.adsabs.harvard.edu/abs/2022AJ....164..117D/abstract)
+3. [Eyer, L., et al. "Gaia Data Release 3. Summary of the variability processing and analysis." (2023).](https://ui.adsabs.harvard.edu/abs/2023A%26A...674A..13E/abstract)
+4. [Seto, N. "Search for Galactic Civilizations Using Historical Supernovae." (2021)](https://ui.adsabs.harvard.edu/abs/2021ApJ...917...96S/abstract)
